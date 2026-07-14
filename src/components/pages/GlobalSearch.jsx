@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { jikanApi } from '@/services/api';
+import { anilistApi } from '@/services/anilistApi';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { LayoutGrid, List, Search, Loader2 } from 'lucide-react';
 import { AnimeCard } from '@/components/ui/AnimeCard';
@@ -25,7 +25,6 @@ const CATEGORIES = [
 
 export function GlobalSearch() {
     const [searchParams, setSearchParams] = useSearchParams();
-    const navigate = useNavigate();
 
     const query = searchParams.get('q') || '';
     const activeTab = searchParams.get('type') || 'all';
@@ -69,50 +68,35 @@ export function GlobalSearch() {
                 const isAll = activeTab === 'all';
                 const limit = isAll ? 10 : 25; // In 'all' tab we show fewer items per category
 
-                const tasks = [];
-
-                if (isAll || activeTab === 'anime') {
-                    tasks.push(
-                        jikanApi.searchAnime(query, limit, { signal: controller.signal })
-                            .then(res => isMounted && setAnimeResults(res.data || []))
-                            .catch(err => { if (err.name !== 'AbortError') console.error(err); })
-                    );
-                } else {
-                    if (isMounted) setAnimeResults([]);
+                if (isMounted) {
+                    setAnimeResults([]);
+                    setCharacterResults([]);
+                    setPersonResults([]);
+                    setStudioResults([]);
                 }
 
-                if (isAll || activeTab === 'character') {
-                    tasks.push(
-                        jikanApi.searchCharacters(query, limit, { signal: controller.signal })
-                            .then(res => isMounted && setCharacterResults(res.data || []))
-                            .catch(err => { if (err.name !== 'AbortError') console.error(err); })
-                    );
-                } else {
-                    if (isMounted) setCharacterResults([]);
+                if (activeTab === 'studio') {
+                    const response = await anilistApi.searchStudios(query, limit, { signal: controller.signal });
+                    if (isMounted) setStudioResults(response.data || []);
+                    return;
                 }
 
-                if (isAll || activeTab === 'person') {
-                    tasks.push(
-                        jikanApi.searchPeople(query, limit, { signal: controller.signal })
-                            .then(res => isMounted && setPersonResults(res.data || []))
-                            .catch(err => { if (err.name !== 'AbortError') console.error(err); })
-                    );
-                } else {
-                    if (isMounted) setPersonResults([]);
+                const catalog = await anilistApi.searchCatalog(query, limit, {
+                    anime: isAll || activeTab === 'anime',
+                    characters: isAll || activeTab === 'character',
+                    people: isAll || activeTab === 'person',
+                }, { signal: controller.signal });
+
+                if (!isMounted) return;
+                setAnimeResults(catalog.anime);
+                setCharacterResults(catalog.characters);
+                setPersonResults(catalog.people);
+                setStudioResults([]);
+
+            } catch (error) {
+                if (error.name !== 'AbortError' && isMounted) {
+                    console.error('Erro na busca global:', error);
                 }
-
-                if (isAll || activeTab === 'studio') {
-                    tasks.push(
-                        jikanApi.searchStudios(query, limit, { signal: controller.signal })
-                            .then(res => isMounted && setStudioResults(res.data || []))
-                            .catch(err => { if (err.name !== 'AbortError') console.error(err); })
-                    );
-                } else {
-                    if (isMounted) setStudioResults([]);
-                }
-
-                await Promise.allSettled(tasks);
-
             } finally {
                 if (isMounted) setLoading(false);
             }

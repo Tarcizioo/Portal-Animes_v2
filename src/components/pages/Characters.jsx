@@ -2,13 +2,13 @@
 import { useCharacters } from '@/hooks/useCharacters';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { CharacterCard } from '@/components/ui/CharacterCard';
-import { LayoutGrid, List, Users } from 'lucide-react';
+import { AlertCircle, LayoutGrid, List, RefreshCw, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { CharacterListItem } from '@/components/ui/CharacterListItem';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 
 export function Characters() {
-    const { characters, loading, loadMore, hasMore } = useCharacters();
+    const { characters, loading, initialLoading, loadMore, hasMore, error, retry } = useCharacters();
     const sentinelRef = useRef(null);
 
     // Persisted View Mode
@@ -24,12 +24,12 @@ export function Characters() {
 
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
-            if (entries[0].isIntersecting && hasMore && !loading) loadMore();
+            if (entries[0].isIntersecting && hasMore && !loading && !error) loadMore();
         }, { rootMargin: "200px" });
 
         if (sentinelRef.current) observer.observe(sentinelRef.current);
         return () => observer.disconnect();
-    }, [hasMore, loading, loadMore]);
+    }, [hasMore, loading, error, loadMore]);
 
     return (
 
@@ -63,6 +63,19 @@ export function Characters() {
                     </div>
                 </div>
 
+                {error && (
+                    <div role="alert" className="mb-8 flex flex-col items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-6 text-center">
+                        <AlertCircle className="h-8 w-8 text-red-400" />
+                        <div>
+                            <h2 className="font-bold text-text-primary">Nao foi possivel carregar os personagens</h2>
+                            <p className="mt-1 text-sm text-text-secondary">A API pode estar instavel. Os dados em cache continuam preservados.</p>
+                        </div>
+                        <button type="button" onClick={() => retry()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white">
+                            <RefreshCw className="h-4 w-4" /> Tentar novamente
+                        </button>
+                    </div>
+                )}
+
                 {/* Content Area */}
                 {viewMode === 'grid' ? (
                     /* GRID VIEW */
@@ -74,7 +87,7 @@ export function Characters() {
                                 rank={index + 1}
                             />
                         ))}
-                        {loading && Array.from({ length: 10 }).map((_, i) => (
+                        {initialLoading && Array.from({ length: 10 }).map((_, i) => (
                             <div key={`skeleton-${i}`} className="bg-bg-secondary rounded-3xl overflow-hidden shadow-sm border border-border-color aspect-[3/4] animate-pulse relative">
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
                             </div>
@@ -90,7 +103,7 @@ export function Characters() {
                                 rank={index + 1}
                             />
                         ))}
-                        {loading && Array.from({ length: 5 }).map((_, i) => (
+                        {initialLoading && Array.from({ length: 5 }).map((_, i) => (
                             <div key={`skeleton-list-${i}`} className="h-24 bg-bg-secondary rounded-2xl animate-pulse border border-border-color"></div>
                         ))}
                     </div>
@@ -103,7 +116,7 @@ export function Characters() {
                     )}
                 </div>
 
-                {!loading && characters.length === 0 && (
+                {!loading && !error && characters.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-text-secondary gap-4">
                         <Users className="w-16 h-16 opacity-20" />
                         <p className="text-lg font-medium">Nenhum personagem encontrado.</p>

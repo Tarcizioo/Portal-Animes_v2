@@ -1,174 +1,201 @@
 # Portal Animes V2
 
-Portal Animes V2 is a modern, full-featured anime discovery and tracking web application built with **React 19** and **Firebase**. It provides a rich, social experience — from personalized library tracking to public profiles, detailed statistics, and community interaction — all powered by real-time data from the **Jikan API**.
+[![Quality](https://github.com/Tarcizioo/portal-animes-V2/actions/workflows/quality.yml/badge.svg)](https://github.com/Tarcizioo/portal-animes-V2/actions/workflows/quality.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-22c55e.svg)](LICENSE)
+[![React](https://img.shields.io/badge/React-19-149eca.svg)](https://react.dev/)
 
-**🌐 Live Demo:** [https://portal-animes-v2.vercel.app/](https://portal-animes-v2.vercel.app/)
+A full-stack anime discovery, tracking, and social platform built with React 19,
+Firebase, and the Jikan API. The project demonstrates real-time data modeling,
+authentication, responsive interface design, API resilience, automated testing,
+security rules, and production deployment on Vercel.
 
----
+**Live application:** [portal-animes-v2.vercel.app](https://portal-animes-v2.vercel.app/)
 
-## ✨ Features
+## Product Highlights
 
-### 🔐 Authentication & Account
-- **Google Sign-In** — Secure, one-click authentication via Firebase.
-- **Account Management** — Delete your account permanently from the Settings panel (with confirmation safeguard).
+- Track anime with watching, completed, paused, dropped, and planned statuses.
+- Update episode progress directly from the library and set a weekly goal.
+- Continue watching recent titles without opening the details page.
+- Create a public profile with favorites, achievements, activity history, and social links.
+- Follow other users with mirrored, atomic Firestore relationships.
+- Compare libraries through a taste compatibility score.
+- Explore anime, characters, people, studios, seasonal releases, and weekly schedules.
+- Analyze personal viewing habits with status, score, format, and genre charts.
+- Import and export library data in JSON, CSV, and MyAnimeList XML formats.
+- Install the application as a PWA with runtime API and image caching.
 
----
+## Engineering Highlights
 
-### 👤 User Profile & Customization
-- **Profile Page** — Personalized page showing your bio, stats, favorite animes, and achievements.
-- **Profile Editing** — Update your display name, bio, and social links at any time.
-- **Profile Banner & Avatar** — Upload and crop a custom profile photo directly in-browser using `react-image-crop`.
-- **Favorite Animes Widget** — Showcase up to 3 hand-picked favorites prominently on your profile, reorderable via drag-and-drop.
-- **Favorite Studios** — Highlight your favorite animation studios.
-- **Profile Sharing** — Generate a shareable link or card (rendered with `html2canvas`) to share your profile with anyone.
-- **Public Profile** — Every user has a public profile page (`/u/:uid`) visible to anyone — no login required.
-- **Public Library** — Anyone can browse another user's full anime library at `/u/:uid/library`.
-- **User Search** — Find other users by name directly from your profile page.
+### Resilient API Access
 
----
+All Jikan requests use the same `/api/jikan` route in development and production.
+The client applies request deduplication, a global queue, abort support, retries, and
+cooldowns for HTTP 429 responses. The Vercel function adds endpoint-specific CDN
+caching with stale-while-revalidate, reducing upstream traffic without a paid API.
 
-### 📚 Anime Library
-- **Personalized Tracking** — Add animes to your library with statuses: **Watching**, **Completed**, **Paused**, **Dropped**, and **Plan to Watch**.
-- **Episode Progress & Scores** — Track exactly which episode you're on and assign personal scores (1–10).
-- **Favorites** — Mark any anime in your library as a favorite.
-- **Cloud Sync** — Your entire library is stored in **Firestore** and syncs across all your devices in real time.
-- **Drag-and-Drop Reordering** — Reorder your favorites list with intuitive drag-and-drop powered by `@dnd-kit`.
-- **Virtualized List** — The library renders efficiently even with hundreds of entries, using `react-virtuoso`.
+### Real-Time and Secure Data
 
-#### 📦 Library Backup & Import
-- **Export to JSON** — Download your complete library as a JSON backup file.
-- **Export to CSV** — Export your library to a CSV file, compatible with Excel and Google Sheets.
-- **Import from JSON** — Restore a previous backup by importing a Portal Animes JSON file.
-- **Import from MyAnimeList (MAL)** — Import your entire MAL history from a MAL XML export file, with automatic image and metadata fetching via the Jikan API.
+Firebase Authentication provides Google sign-in, while Firestore listeners keep
+profiles, libraries, comments, notifications, followers, and preferences synchronized.
+Listener state is associated with the active user ID so data from a previous session is
+never rendered while accounts change.
 
----
+Follower and following documents must be written or deleted together. These invariants
+are enforced by Firestore Security Rules and verified against the local emulator.
 
-### 📊 Statistics
-- **Dedicated Stats Page** — An in-depth analytics dashboard for your library.
-- **Overview Cards** — Quick glance at total animes, total watch time (days & hours), average score, and favorite count.
-- **Status Distribution** — Donut chart breaking down your library by status.
-- **Score Distribution** — Stacked bar chart showing how you've scored your animes, filterable by year, season, and format.
-- **Format Distribution** — Pie chart showing the breakdown of anime types (TV, Movie, OVA, etc.).
-- **Genre Analysis Table** — Detailed sortable table of your top genres with percentage, average score, and time watched. Filterable by year, season, and format. Features hover tooltips with per-genre status breakdown.
-- **Top Rated List** — Your personal top 6 highest-scored animes.
+### Performance
 
----
+- Every route is lazy-loaded with React `Suspense`.
+- Profile editing, sharing, compatibility, `html2canvas`, and Recharts load on demand.
+- TanStack Query persists reusable API responses between sessions.
+- Responsive images use appropriate sizes and lazy loading.
+- The service worker removes outdated caches and uses dedicated API/image strategies.
 
-### 🏆 Achievements & Badges
-- **Badge System** — Unlock achievements automatically as you grow your library (e.g., first anime added, 10 completed, 1000 episodes watched, etc.).
-- **Toast Notifications** — Get an in-app pop-up the moment you unlock a new badge.
-- **Progress Tracking** — See how close you are to unlocking all badges.
+Measured production bundle improvements:
 
----
+| Route | Before | Current initial chunk | Reduction |
+|---|---:|---:|---:|
+| Profile | ~262 KB | ~17 KB | ~93% |
+| Statistics | ~390 KB | ~23 KB | ~94% |
 
-### 🤝 Social & Community
-- **Comments System** — Post real-time comments on any anime's detail page. Comments are stored in Firestore and update instantly.
-- **Comment Likes** — Like other users' comments. Comment owners receive a notification when their comment is liked.
-- **Delete Own Comments** — Remove your own comments at any time.
-- **Taste Compatibility** — View a compatibility score between your library and another user's, based on shared animes, genre overlap, and scoring patterns.
-- **👥 Notifications System** — Receive in-app notifications for:
-  - Profile visits (someone viewed your public profile)
-  - Comment likes (someone liked your comment)
-  - Notifications are deduplicated (anti-spam) and marked as read.
+The large chart and image-export libraries remain in separate asynchronous chunks.
 
----
+### User Experience
 
-### 🔍 Discovery & Catalog
-- **Dynamic Catalog** — Browse the full anime database with advanced filters: Genre, Season, Year, Status, Type, Rating, and more.
-- **Search** — Fast, debounced search for any anime by title.
-- **Sorting** — Sort catalog results by popularity, score, newest, and more.
-- **Grid & List Views** — Toggle between a card grid and a compact list layout.
-- **Carousels** — The Home page features swipeable sections (Trending, Top Rated, Seasonal) powered by **Swiper.js**.
+- Responsive grid and list layouts for desktop and mobile.
+- Accessible mobile filter dialogs with Escape handling and scroll locking.
+- Skeleton, empty, error, and retry states for asynchronous screens.
+- Animated toast notifications with accessible live regions and exit transitions.
+- Optimistic drag-and-drop ordering without copying stale objects into component state.
+- Eight persistent visual themes.
 
----
+## Architecture
 
-### 📅 Release Calendar
-- **Weekly Schedule** — Browse currently airing anime organized by day of the week. Auto-selects today's schedule on load.
-- **Sorting** — Sort the schedule by popularity, score, or alphabetically.
-- **Grid & List Views** — Toggle between card grid and list layout.
+```mermaid
+flowchart LR
+    UI[React UI] --> Query[TanStack Query]
+    UI --> Hooks[Domain hooks]
+    Query --> Proxy[Vercel Jikan proxy]
+    Proxy --> Jikan[Jikan API]
+    Hooks --> Auth[Firebase Auth]
+    Hooks --> Firestore[Cloud Firestore]
+    Rules[Security Rules] --> Firestore
+    PWA[Service Worker] --> UI
+```
 
----
+```text
+src/
+  components/    Pages and reusable UI organized by domain
+  context/       Authentication, theme, and toast providers
+  hooks/         Firestore subscriptions and domain behavior
+  services/      Firebase setup, API client, and notifications
+  utils/         Pure reusable business logic
+api/
+  jikan/         Cached Vercel proxy for the Jikan API
+tests/           Vitest component tests and Firestore rule tests
+```
 
-### 🎌 Anime Detail Pages
-- **Full Overview** — Synopsis, score, status, episode count, genres, studios, themes, and recommendations.
-- **Embedded Trailer** — Watch the official trailer directly on the page.
-- **Characters Tab** — Browse all voiced characters with links to their full detail pages.
-- **Staff Tab** — View the full list of production staff members.
-- **Recommendations** — Discover similar animes recommended by the community.
-- **Character Detail Page** — Full character profile, including voice actors across multiple languages and anime appearances.
-- **Person / Voice Actor Detail Page** — Complete voice actor profile with their full role history and biography.
-- **Studio Detail Page** — Browse an animation studio's complete anime catalog.
+## Technology Stack
 
----
-
-### 🧑‍🎤 Characters & People
-- **Top Characters** (`/characters`) — Browse the most popular anime characters, with quick links to their individual detail pages.
-- **Top Voice Actors** (`/people`) — Explore top voice actors and industry professionals, each with a link to their full profile.
-- **Discover via Anime** — From any anime's detail page, open the Characters tab to see the full cast, then navigate directly to a `CharacterDetails` page to view the character's biography, voice actors (per language), and anime appearances.
-
----
-
-### 🎨 Themes & Appearance
-- **8 Built-in Themes** — Light, Sunshine, Matcha, Rose, Dark, Blue (Majorelle), Blood, and Dracula.
-- **Persistent Theme** — Your selected theme is saved and applied automatically on every visit.
-- **Adaptive UI** — The entire interface seamlessly adapts to the active theme.
-
----
-
-### ⚙️ Settings
-- **Appearance Tab** — Switch themes visually.
-- **Library Tab** — Export and import your library (JSON, CSV, MAL XML).
-- **Account Tab** — Manage your account, including permanent account deletion.
-
----
-
-### 🚀 Performance & UX
-- **Page Transitions** — Smooth animated transitions between pages using **Framer Motion**.
-- **Skeleton Loading** — Placeholder skeletons displayed while content is fetching, instead of blank screens.
-- **Lazy Loading** — All pages are code-split and loaded on demand, keeping the initial bundle small.
-- **Cached Queries** — API responses are cached and persisted across sessions with **TanStack Query** + storage persistor, minimizing redundant network requests.
-- **Progressive Web App (PWA)** — Installable on mobile devices via `vite-plugin-pwa`.
-- **Error Boundaries** — Route-level error boundaries prevent a single page crash from taking down the entire app.
-- **SEO-Friendly Titles** — Dynamic `<title>` tags update on every page for better shareability.
-
----
-
-## 🛠️ Tech Stack
-
-| Category | Technology |
+| Area | Technology |
 |---|---|
-| **Framework** | React 19, Vite 7 |
-| **Styling** | Tailwind CSS 3, PostCSS |
-| **Animations** | Framer Motion |
-| **State & Data Fetching** | TanStack Query v5 (with persistence) |
-| **Routing** | React Router DOM v7 |
-| **Backend / BaaS** | Firebase 12 (Auth, Firestore) |
-| **Charts** | Recharts |
-| **Drag & Drop** | @dnd-kit (core, sortable, utilities) |
-| **Carousels** | Swiper.js |
-| **Virtualization** | React Virtuoso |
-| **Image Crop** | react-image-crop |
-| **Image Export** | html2canvas |
-| **Icons** | Lucide React |
-| **API** | Jikan API v4 (MyAnimeList) |
-| **Analytics** | Vercel Speed Insights |
-| **PWA** | vite-plugin-pwa |
+| Frontend | React 19, Vite 7, React Router 7 |
+| Styling and motion | Tailwind CSS 3, Framer Motion, Lucide React |
+| Server state | TanStack Query 5 with persisted cache |
+| Backend | Firebase Authentication and Cloud Firestore |
+| External data | Jikan API v4 through a Vercel Function |
+| Data visualization | Recharts |
+| Interaction | dnd-kit, Swiper, react-image-crop |
+| Offline support | vite-plugin-pwa and Workbox |
+| Testing | Vitest, Testing Library, Node Test Runner, Firebase Emulator |
+| Delivery | GitHub Actions and Vercel |
 
----
+## Quality and Tests
 
-## 🔒 Security
+The quality workflow runs on every push and pull request:
 
-The `firestore.rules` file enforces fine-grained security rules:
-- Users can only write to their own data.
-- Public profiles and libraries are readable by anyone.
-- Comments are readable by anyone, but only writeable and deletable by their authors.
+1. Install dependencies with `npm ci`.
+2. Run the complete ESLint configuration.
+3. Run utility and React component tests with Vitest.
+4. Generate the production build.
+5. Start the Firestore Emulator and verify security rules.
 
----
+Current local verification:
 
-## 📄 License
+- 9 Vitest tests covering weekly goals, library quick actions, toast behavior, and API result deduplication.
+- 4 Firestore Security Rules integration tests.
+- 0 ESLint errors or warnings.
+- 0 known npm audit vulnerabilities.
 
-This project is open-source and available under the [MIT License](LICENSE).
+## Run Locally
 
----
+Requirements:
 
-Made with ❤️ by [Tarcizio](https://github.com/Tarcizioo)
+- Node.js 22 or newer.
+- A Firebase project on the free Spark plan.
+- Java 21 only when running Firestore rule tests.
+
+```bash
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Fill `.env.local` with the public web configuration from Firebase Console:
+
+```env
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id
+VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+VITE_ENABLE_SPEED_INSIGHTS=false
+```
+
+Firebase web configuration values identify the project and are not server secrets.
+Access control is enforced by Authentication and `firestore.rules`. Never commit
+service-account credentials or private server keys.
+
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `npm run dev` | Start the Vite development server |
+| `npm run build` | Generate the production build and PWA |
+| `npm run preview` | Preview the production build locally |
+| `npm run lint` | Run the complete ESLint suite |
+| `npm test` | Run all Vitest tests once |
+| `npm run test:watch` | Run Vitest in watch mode |
+| `npm run test:rules` | Run rules tests inside an active Firestore Emulator |
+
+To start the emulator and execute its tests in one command:
+
+```bash
+npx firebase-tools emulators:exec --only firestore "npm run test:rules"
+```
+
+## Free-Tier Design
+
+The project is designed to run without paid services:
+
+- Jikan is a free, unauthenticated MyAnimeList API.
+- Firebase uses the Spark plan and client-side Security Rules.
+- Vercel hosting and the API proxy fit the free hobby workflow.
+- Analytics are optional and disabled unless explicitly enabled.
+- Tests and CI use open-source tools and GitHub Actions.
+
+## Security
+
+- Users can only modify their own profile and nested private data.
+- Public profile and library reads respect each profile's visibility settings.
+- Comment authorship and notification ownership are enforced server-side.
+- Follow relationships require atomic mirrored writes and deletes.
+- Vercel applies content type, frame, referrer, and content security headers.
+
+## License
+
+Released under the [MIT License](LICENSE).
+
+Created by [Tarcizio](https://github.com/Tarcizioo).

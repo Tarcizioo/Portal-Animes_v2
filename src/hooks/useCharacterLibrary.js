@@ -9,7 +9,6 @@ import {
     setDoc,
     deleteDoc,
     serverTimestamp,
-    getDocs
 } from 'firebase/firestore';
 
 export function useCharacterLibrary() {
@@ -29,10 +28,10 @@ export function useCharacterLibrary() {
         const q = query(libraryRef);
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const list = snapshot.docs.map(doc => ({
-                id: parseInt(doc.id),
-                ...doc.data()
-            }));
+            const list = snapshot.docs.map((snapshotDoc) => {
+                const data = snapshotDoc.data();
+                return { ...data, id: data.id ?? snapshotDoc.id };
+            });
             setCharacterLibrary(list);
             setLoading(false);
         }, (error) => {
@@ -53,7 +52,7 @@ export function useCharacterLibrary() {
         const charId = character.mal_id || character.id;
         if (!charId) throw new Error("ID do personagem inválido");
 
-        const isFavorite = characterLibrary.some(c => c.id === charId);
+        const isFavorite = characterLibrary.some((item) => String(item.id) === String(charId));
 
         try {
             const charRef = doc(db, 'users', user.uid, 'favorite_characters', charId.toString());

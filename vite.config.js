@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   plugins: [
     react(),
     VitePWA({
@@ -45,14 +45,17 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       workbox: {
+        cleanupOutdatedCaches: true,
+        navigateFallbackDenylist: [/^\/api\//],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         runtimeCaching: [
           {
-            // Cache da API Jikan (NetworkFirst com fallback)
-            urlPattern: /^https:\/\/api\.jikan\.moe\/v4\/.*/i,
+            // Cache the same-origin Vercel proxy used in production.
+            urlPattern: ({ url }) => url.pathname.startsWith('/api/jikan/'),
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'jikan-api-cache',
+              networkTimeoutSeconds: 3,
+              cacheName: 'jikan-api-cache-v2',
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 // 1 hora
@@ -102,8 +105,23 @@ export default defineConfig(({ mode }) => ({
     },
   },
   base: "/",
-  build: {
-    chunkSizeWarningLimit: 1000,
+  server: {
+    proxy: {
+      '/api/jikan': {
+        target: 'https://api.jikan.moe',
+        changeOrigin: true,
+        rewrite: (requestPath) => requestPath.replace(/^\/api\/jikan/, '/v4'),
+      },
+    },
+  },
+  test: {
+    environment: 'jsdom',
+    include: ['tests/**/*.test.{js,jsx}'],
+    setupFiles: ['./tests/setup.js'],
+    clearMocks: true,
+    css: true,
+  },
+  build: {    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {

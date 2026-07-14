@@ -27,9 +27,11 @@ export function AnimeSidebar({ anime, characters, staff }) {
                         icon={Monitor}
                         label="Estúdio"
                         value={anime.studios?.[0] ? (
-                            <Link to={`/studio/${anime.studios[0].mal_id}`} className="hover:underline">
-                                {anime.studios[0].name}
-                            </Link>
+                            anime.studios[0].mal_id ? (
+                                <Link to={`/studio/${anime.studios[0].mal_id}`} className="hover:underline">
+                                    {anime.studios[0].name}
+                                </Link>
+                            ) : anime.studios[0].name
                         ) : '-'}
                         highlight
                     />
@@ -45,15 +47,16 @@ export function AnimeSidebar({ anime, characters, staff }) {
             <div className="space-y-4">
                 <h3 className="font-bold text-lg border-b border-border-color pb-2">Gêneros</h3>
                 <div className="flex flex-wrap gap-2">
-                    {anime.genres?.map(g => (
-                        <Link
-                            key={g.mal_id}
-                            to={`/catalog?genre=${g.mal_id}`}
-                            className="px-3 py-1.5 rounded-lg bg-bg-secondary border border-border-color text-xs font-medium transition-colors hover:bg-primary hover:text-white hover:border-primary"
-                        >
-                            {g.name}
-                        </Link>
-                    ))}
+                    {anime.genres?.map(g => {
+                        const className = "px-3 py-1.5 rounded-lg bg-bg-secondary border border-border-color text-xs font-medium transition-colors hover:bg-primary hover:text-white hover:border-primary";
+                        return g.mal_id ? (
+                            <Link key={g.mal_id} to={`/catalog?genre=${g.mal_id}`} className={className}>
+                                {g.name}
+                            </Link>
+                        ) : (
+                            <span key={g.name} className={className}>{g.name}</span>
+                        );
+                    })}
                 </div>
             </div>
 

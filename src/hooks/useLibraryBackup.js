@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { db } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
-import { jikanApi } from '@/services/api';
+import { anilistApi } from '@/services/anilistApi';
 import { APP_CONFIG } from '@/constants/app';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -101,7 +101,7 @@ export function useLibraryBackup(library = []) {
                     if (!Array.isArray(items)) throw new Error('Formato inválido');
                     const valid = items.filter(a => a.id && a.title && a.status);
                     resolve({ count: valid.length, items: valid });
-                } catch (err) {
+                } catch {
                     reject(new Error('Arquivo JSON inválido ou corrompido.'));
                 }
             };
@@ -169,33 +169,28 @@ export function useLibraryBackup(library = []) {
         const skippedCount = items.length - itemsToProcess.length;
         done += skippedCount;
 
-        // 2. Fetch missing images from Jikan API (Sequencial to respect rate limits)
+        // 2. Hydrate missing metadata in batches through AniList.
         const missingImageItems = itemsToProcess.filter(a => !a.image);
         if (missingImageItems.length > 0) {
-            let fetchCount = 0;
-            for (const item of missingImageItems) {
-                try {
-                    const response = await jikanApi.getAnimeById(item.id);
-                    const animeData = response?.data;
-                    if (animeData) {
-                        item.image = animeData.images?.webp?.large_image_url || animeData.images?.jpg?.large_image_url || null;
-                        item.genres = animeData.genres?.map(g => g.name) || [];
-                        item.studios = animeData.studios?.map(s => s.name) || [];
-                        item.year = animeData.year || null;
-                    }
-                    // Wait 1100ms to stay below Jikan's strict 60 requests/min and 3 requests/sec limits
-                    await new Promise(r => setTimeout(r, 1100));
-                } catch (e) {
-                    console.error(`Erro ao buscar dados do Jikan para ID ${item.id}:`, e);
-                    // Give a much longer pause if we hit a rate limit error before continuing
-                    await new Promise(r => setTimeout(r, 2000));
+            const response = await anilistApi.getAnimeByMalIds(
+                missingImageItems.map((item) => item.id)
+            );
+            const animeById = new Map(
+                (response.data || []).map((anime) => [String(anime.mal_id), anime])
+            );
+
+            missingImageItems.forEach((item, index) => {
+                const animeData = animeById.get(String(item.id));
+                if (animeData) {
+                    item.image = animeData.images?.webp?.large_image_url || animeData.images?.jpg?.large_image_url || null;
+                    item.genres = animeData.genres?.map((genre) => genre.name) || [];
+                    item.studios = animeData.studios?.map((studio) => studio.name) || [];
+                    item.year = animeData.year || null;
+                    item.season = animeData.season || null;
                 }
-                fetchCount++;
-                // Update progress slowly during fetch using half the weight, so it doesn't freeze
-                // done starts at skippedCount. We add fetchCount.
-                onProgress?.(done + fetchCount, items.length);
-            }
-            // Sync done to account for the items we just fetched
+                onProgress?.(done + index + 1, items.length);
+            });
+
             done += missingImageItems.length;
         }
 

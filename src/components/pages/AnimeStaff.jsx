@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useAnimeInfo } from '@/hooks/useAnimeInfo';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { Loader } from '@/components/ui/Loader';
@@ -8,7 +8,6 @@ import { BackButton } from '@/components/ui/BackButton';
 
 export function AnimeStaff() {
     const { id } = useParams();
-    const navigate = useNavigate();
     const { anime, staff, loading } = useAnimeInfo(id);
     
     usePageTitle(anime ? `${anime.title} - Equipe` : 'Equipe de Produção');

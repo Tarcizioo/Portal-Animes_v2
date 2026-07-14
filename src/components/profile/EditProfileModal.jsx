@@ -1,355 +1,493 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Camera,
+  Check,
+  ClipboardPaste,
+  Globe2,
+  ImagePlus,
+  Link2,
+  LoaderCircle,
+  LockKeyhole,
+  Palette,
+  Save,
+  Search,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+  X,
+} from 'lucide-react';
+import clsx from 'clsx';
 import { useModalClose } from '@/hooks/useModalClose';
-import { X, Save, Upload, Link as LinkIcon, Hash, Camera, Lock, Globe, Edit2 } from 'lucide-react';
 import { useImageUpload } from '@/hooks/useImageUpload';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { ImageCropModal } from '@/components/ui/ImageCropModal';
+import { SocialIcon } from '@/components/profile/ProfileConnections';
+import { CONNECTION_PLATFORMS, formatConnectionHandle, normalizeConnectionValue } from '@/utils/profileConnections';
 
-// Lista de Gêneros Comuns
 const ANIME_GENRES = [
-    "Action", "Adventure", "Avant Garde", "Award Winning", "Boys Love", "Comedy", "Drama",
-    "Fantasy", "Girls Love", "Gourmet", "Horror", "Mystery", "Romance", "Sci-Fi",
-    "Slice of Life", "Sports", "Supernatural", "Suspense", "Ecchi", "Isekai", "Mecha",
-    "Military", "Music", "Parody", "Psychological", "School", "Shoujo", "Shonen",
-    "Josei", "Seinen", "Space", "Super Power", "Vampire", "Harem", "Historical",
-    "Demons", "Magic", "Martial Arts", "Police", "Samurai", "Thriller"
+  'Action', 'Adventure', 'Avant Garde', 'Award Winning', 'Boys Love', 'Comedy', 'Drama',
+  'Fantasy', 'Girls Love', 'Gourmet', 'Horror', 'Mystery', 'Romance', 'Sci-Fi',
+  'Slice of Life', 'Sports', 'Supernatural', 'Suspense', 'Ecchi', 'Isekai', 'Mecha',
+  'Military', 'Music', 'Parody', 'Psychological', 'School', 'Shoujo', 'Shonen',
+  'Josei', 'Seinen', 'Space', 'Super Power', 'Vampire', 'Harem', 'Historical',
+  'Demons', 'Magic', 'Martial Arts', 'Police', 'Samurai', 'Thriller',
 ];
 
-export function EditProfileModal({ isOpen, onClose, profile, onSave }) {
-    useModalClose(isOpen, onClose);
+const PROFILE_TABS = [
+  { id: 'appearance', label: 'Visual', description: 'Avatar e banner', icon: Palette },
+  { id: 'identity', label: 'Perfil', description: 'Nome, bio e gostos', icon: UserRound },
+  { id: 'connections', label: 'Conexões', description: 'Suas redes em um toque', icon: Link2 },
+  { id: 'privacy', label: 'Privacidade', description: 'Controle de visibilidade', icon: ShieldCheck },
+];
 
-    const { user } = useAuth();
-    const { toast } = useToast();
-    const { uploadImage, uploading } = useImageUpload();
+function createFormData(profile = {}) {
+  return {
+    displayName: profile.displayName || '',
+    photoURL: profile.photoURL || '',
+    bannerURL: profile.bannerURL || '',
+    about: profile.about || '',
+    isPublic: profile.isPublic !== false,
+    favoriteGenres: profile.favoriteGenres || [],
+    connections: {
+      discord: profile.connections?.discord || '',
+      twitter: profile.connections?.twitter || '',
+      instagram: profile.connections?.instagram || '',
+    },
+  };
+}
 
-    const [formData, setFormData] = useState({
-        displayName: '',
-        photoURL: '',
-        bannerURL: '',
-        about: '',
-        isPublic: true,
-        favoriteGenres: [],
-        connections: { discord: '', twitter: '', instagram: '' }
-    });
+function SectionIntro({ eyebrow, title, description }) {
+  return (
+    <div className="mb-6">
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-button-accent">{eyebrow}</p>
+      <h3 className="mt-1 text-2xl font-black text-text-primary">{title}</h3>
+      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">{description}</p>
+    </div>
+  );
+}
 
-    // Files and previews
-    const [bannerFile, setBannerFile]     = useState(null);
-    const [photoFile, setPhotoFile]       = useState(null);
-    const [bannerPreview, setBannerPreview] = useState('');
-    const [photoPreview, setPhotoPreview]   = useState('');
+function ConnectionEditor({ platform, value, onChange, toast }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value || '');
+  const normalizedValue = normalizeConnectionValue(platform.id, value);
 
-    // Crop modal state
-    const [cropModal, setCropModal] = useState({ open: false, src: '', type: '' });
+  useEffect(() => {
+    setDraft(value || '');
+  }, [value]);
 
-    const bannerInputRef = useRef(null);
-    const photoInputRef  = useRef(null);
+  const saveDraft = () => {
+    const normalized = normalizeConnectionValue(platform.id, draft);
+    if (!normalized) {
+      toast.warning('Digite um usuário ou cole o link do perfil.', platform.label);
+      return;
+    }
+    onChange(normalized);
+    setEditing(false);
+  };
 
-    const [tempGenre, setTempGenre]   = useState('');
-    const [suggestions, setSuggestions] = useState([]);
+  const pasteAndConnect = async () => {
+    try {
+      const clipboardValue = await navigator.clipboard.readText();
+      const normalized = normalizeConnectionValue(platform.id, clipboardValue);
+      if (!normalized) throw new Error('empty');
+      onChange(normalized);
+      setDraft(normalized);
+      setEditing(false);
+      toast.success(`${platform.label} conectado.`, 'Conexões');
+    } catch {
+      setEditing(true);
+      toast.info('Cole o usuário ou link no campo abaixo.', platform.label);
+    }
+  };
 
-    useEffect(() => {
-        if (profile) {
-            setFormData({
-                displayName: profile.displayName || '',
-                photoURL:    profile.photoURL    || '',
-                bannerURL:   profile.bannerURL   || '',
-                about:       profile.about       || '',
-                isPublic:    profile.isPublic !== undefined ? profile.isPublic : true,
-                favoriteGenres: profile.favoriteGenres || [],
-                connections: {
-                    discord:   profile.connections?.discord   || '',
-                    twitter:   profile.connections?.twitter   || '',
-                    instagram: profile.connections?.instagram || ''
-                }
-            });
-            setBannerFile(null); setPhotoFile(null);
-            setBannerPreview(''); setPhotoPreview('');
-        }
-    }, [profile]);
+  return (
+    <div className={clsx('rounded-2xl border p-4 transition-colors', platform.surface)}>
+      <div className="flex items-center gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-black/20" style={{ color: platform.accent }}>
+          <SocialIcon platform={platform.id} className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h4 className="font-black text-text-primary">{platform.label}</h4>
+            {normalizedValue && <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-400">Conectado</span>}
+          </div>
+          <p className="truncate text-xs text-text-secondary">
+            {normalizedValue ? formatConnectionHandle(platform.id, normalizedValue) : platform.hint}
+          </p>
+        </div>
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        if (name.startsWith('social_')) {
-            const key = name.replace('social_', '');
-            setFormData(prev => ({ ...prev, connections: { ...prev.connections, [key]: value } }));
-        } else {
-            setFormData(prev => ({ ...prev, [name]: value }));
-        }
-    };
+        {!editing && normalizedValue && (
+          <button type="button" onClick={() => setEditing(true)} className="rounded-lg px-2.5 py-1.5 text-xs font-bold text-text-secondary hover:bg-black/20 hover:text-text-primary">Editar</button>
+        )}
+      </div>
 
-    // Open crop modal instead of setting file directly
-    const handleFileChange = (e, type) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const src = URL.createObjectURL(file);
-        setCropModal({ open: true, src, type });
-        // reset input so same file can be selected again
-        e.target.value = '';
-    };
+      {editing ? (
+        <div className="mt-4 space-y-3">
+          <label className="sr-only" htmlFor={`connection-${platform.id}`}>{platform.label}</label>
+          <input
+            id={`connection-${platform.id}`}
+            type="text"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                saveDraft();
+              }
+            }}
+            placeholder={platform.placeholder}
+            autoFocus
+            className="w-full rounded-xl border border-border-color bg-bg-primary/70 px-3 py-2.5 text-sm text-text-primary outline-none transition-colors placeholder:text-text-secondary/60 focus:border-button-accent"
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => { setDraft(value || ''); setEditing(false); }} className="rounded-lg px-3 py-2 text-xs font-bold text-text-secondary hover:text-text-primary">Cancelar</button>
+            <button type="button" onClick={saveDraft} className="inline-flex items-center gap-1.5 rounded-lg bg-button-accent px-3 py-2 text-xs font-black text-text-on-primary"><Check className="h-3.5 w-3.5" /> Confirmar</button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 flex gap-2">
+          <button type="button" onClick={pasteAndConnect} className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-bg-primary/60 px-3 py-2.5 text-xs font-black text-text-primary transition-colors hover:bg-bg-primary">
+            <ClipboardPaste className="h-4 w-4" /> {normalizedValue ? 'Substituir do clipboard' : 'Colar e conectar'}
+          </button>
+          {!normalizedValue && <button type="button" onClick={() => setEditing(true)} className="rounded-xl border border-border-color px-3 py-2.5 text-xs font-bold text-text-secondary hover:text-text-primary">Digitar</button>}
+          {normalizedValue && <button type="button" onClick={() => onChange('')} aria-label={`Remover ${platform.label}`} className="rounded-xl border border-red-500/20 px-3 text-red-400 hover:bg-red-500/10"><Trash2 className="h-4 w-4" /></button>}
+        </div>
+      )}
+    </div>
+  );
+}
 
-    // Called when user confirms crop
-    const handleCropConfirm = (blob, previewUrl) => {
-        const file = new File([blob], `${cropModal.type}_crop.jpg`, { type: 'image/jpeg' });
-        if (cropModal.type === 'banner') {
-            setBannerFile(file);
-            setBannerPreview(previewUrl);
-        } else {
-            setPhotoFile(file);
-            setPhotoPreview(previewUrl);
-        }
-        setCropModal({ open: false, src: '', type: '' });
-    };
+export function EditProfileModal({ isOpen, onClose, profile, onSave, initialTab = 'appearance' }) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { uploadImage, uploading } = useImageUpload();
+  const [activeTab, setActiveTab] = useState('appearance');
+  const [formData, setFormData] = useState(() => createFormData(profile));
+  const [bannerFile, setBannerFile] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [bannerPreview, setBannerPreview] = useState('');
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [cropModal, setCropModal] = useState({ open: false, src: '', type: '' });
+  const [genreSearch, setGenreSearch] = useState('');
+  const [saving, setSaving] = useState(false);
+  const bannerInputRef = useRef(null);
+  const photoInputRef = useRef(null);
+  const objectUrlsRef = useRef(new Set());
 
-    // Sugestões de gênero
-    useEffect(() => {
-        if (!tempGenre.trim()) { setSuggestions([]); return; }
-        const lowerVal = tempGenre.toLowerCase();
-        setSuggestions(ANIME_GENRES.filter(g =>
-            g.toLowerCase().includes(lowerVal) && !formData.favoriteGenres.includes(g)
-        ));
-    }, [tempGenre, formData.favoriteGenres]);
+  useModalClose(isOpen && !cropModal.open, onClose);
 
-    const addGenre = (genre) => {
-        const valid = ANIME_GENRES.find(g => g.toLowerCase() === genre.toLowerCase());
-        if (valid && !formData.favoriteGenres.includes(valid))
-            setFormData(prev => ({ ...prev, favoriteGenres: [...prev.favoriteGenres, valid] }));
-        setTempGenre(''); setSuggestions([]);
-    };
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData(createFormData(profile));
+    setBannerFile(null);
+    setPhotoFile(null);
+    setBannerPreview('');
+    setPhotoPreview('');
+    setGenreSearch('');
+    setActiveTab(PROFILE_TABS.some((tab) => tab.id === initialTab) ? initialTab : 'appearance');
+  }, [initialTab, isOpen, profile]);
 
-    const handleKeyDown = (e) => {
-        if (e.key !== 'Enter') return;
-        e.preventDefault();
-        if (suggestions.length) { addGenre(suggestions[0]); return; }
-        const match = ANIME_GENRES.find(g => g.toLowerCase() === tempGenre.trim().toLowerCase());
-        if (match) addGenre(match);
-        else toast.warning("Por favor, selecione um gênero válido da lista.");
-    };
-
-    const removeGenre = (genre) =>
-        setFormData(prev => ({ ...prev, favoriteGenres: prev.favoriteGenres.filter(g => g !== genre) }));
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        let updatedData = { ...formData };
-        try {
-            if (bannerFile) {
-                const url = await uploadImage(bannerFile, `users/${user.uid}/banner_${Date.now()}`);
-                if (url) updatedData.bannerURL = url;
-            }
-            if (photoFile) {
-                const url = await uploadImage(photoFile, `users/${user.uid}/avatar_${Date.now()}`);
-                if (url) updatedData.photoURL = url;
-            }
-            await onSave(updatedData);
-            onClose();
-        } catch (error) {
-            console.error("Erro ao salvar perfil:", error);
-            if (error.code === 'storage/unauthorized') toast.error("Erro de permissão no Firebase Storage.");
-            else if (error.code === 'storage/canceled')  toast.warning("Upload cancelado.");
-            else toast.error(`Erro ao salvar: ${error.message}`);
-        }
-    };
-
-    if (!isOpen) return null;
-
-    return (
-        <>
-            {/* Crop Modal (above everything) */}
-            {cropModal.open && (
-                <ImageCropModal
-                    imageSrc={cropModal.src}
-                    type={cropModal.type}
-                    onConfirm={handleCropConfirm}
-                    onCancel={() => setCropModal({ open: false, src: '', type: '' })}
-                />
-            )}
-
-            <div
-                className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
-                onClick={onClose}
-            >
-                <div
-                    className="bg-[var(--bg-secondary)] w-full max-w-2xl rounded-t-2xl md:rounded-2xl border border-[var(--border-color)] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] md:max-h-[90vh] mb-16 md:mb-0"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {/* Header */}
-                    <div className="flex items-center justify-between p-4 md:p-6 border-b border-[var(--border-color)] bg-[var(--bg-tertiary)]">
-                        <h2 className="text-lg md:text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-                            <Edit2 className="w-4 h-4 md:w-5 md:h-5 text-primary" /> Editar Perfil
-                        </h2>
-                        <button onClick={onClose} className="p-2 hover:bg-[var(--bg-primary)]/10 rounded-full transition-colors text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    {/* Body */}
-                    <div className="overflow-y-auto p-4 md:p-6 space-y-6 md:space-y-8 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-
-                        {/* 1. Aparência */}
-                        <section className="space-y-4">
-                            <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-                                <Upload className="w-4 h-4" /> Aparência
-                            </h3>
-
-                            {/* Banner */}
-                            <div className="space-y-2">
-                                <label className="text-sm text-[var(--text-secondary)]">Banner do Perfil</label>
-                                <div
-                                    className="relative h-32 w-full rounded-xl overflow-hidden bg-black/40 border-2 border-dashed border-white/10 group hover:border-primary/50 transition-colors cursor-pointer"
-                                    onClick={() => bannerInputRef.current.click()}
-                                >
-                                    {(bannerPreview || formData.bannerURL) ? (
-                                        <img src={bannerPreview || formData.bannerURL} alt="Banner Preview" className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
-                                            <Camera className="w-8 h-8" />
-                                            <span className="text-xs">Clique para enviar (proporção 16:5)</span>
-                                        </div>
-                                    )}
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <Camera className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
-                                    </div>
-                                </div>
-                                <input type="file" ref={bannerInputRef} onChange={(e) => handleFileChange(e, 'banner')} accept="image/*" className="hidden" />
-                            </div>
-
-                            {/* Avatar */}
-                            <div className="space-y-2">
-                                <label className="text-sm text-gray-300">Foto de Perfil</label>
-                                <div className="flex items-center gap-4">
-                                    <div
-                                        className="relative w-20 h-20 rounded-full overflow-hidden bg-black/40 border-2 border-dashed border-white/10 group hover:border-primary/50 transition-colors cursor-pointer"
-                                        onClick={() => photoInputRef.current.click()}
-                                    >
-                                        {(photoPreview || formData.photoURL) ? (
-                                            <img src={photoPreview || formData.photoURL} alt="Avatar Preview" className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity" />
-                                        ) : (
-                                            <div className="flex items-center justify-center h-full"><Camera className="w-6 h-6 text-gray-500" /></div>
-                                        )}
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <Camera className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
-                                        </div>
-                                    </div>
-                                    <div className="text-xs text-gray-400">
-                                        <p>Recorte circular automático</p>
-                                        <p>JPG, PNG e WebP suportados</p>
-                                        <button type="button" onClick={() => photoInputRef.current.click()} className="text-primary hover:text-primary-hover mt-1 font-bold">
-                                            Selecionar arquivo
-                                        </button>
-                                    </div>
-                                    <input type="file" ref={photoInputRef} onChange={(e) => handleFileChange(e, 'avatar')} accept="image/*" className="hidden" />
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* 2. Informações Básicas */}
-                        <section className="space-y-4">
-                            <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-                                <Hash className="w-4 h-4" /> Informações Básicas
-                            </h3>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm text-[var(--text-secondary)]">Nome de Exibição</label>
-                                    <input
-                                        type="text" name="displayName" value={formData.displayName} onChange={handleChange}
-                                        className="w-full bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-xl px-4 py-2 text-[var(--text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all font-bold"
-                                    />
-                                </div>
-                                {/* Gêneros com Autocomplete */}
-                                <div className="space-y-2 relative">
-                                    <label className="text-sm text-[var(--text-secondary)]">Gêneros Favoritos</label>
-                                    <div className="flex flex-wrap gap-2 mb-2">
-                                        {formData.favoriteGenres.map(g => (
-                                            <span key={g} className="px-3 py-1 bg-primary/20 text-primary border border-primary/30 rounded-full text-xs font-bold flex items-center gap-1 cursor-pointer hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/30 transition-all" onClick={() => removeGenre(g)}>
-                                                {g} <X className="w-3 h-3" />
-                                            </span>
-                                        ))}
-                                    </div>
-                                    <input
-                                        type="text" value={tempGenre} onChange={(e) => setTempGenre(e.target.value)} onKeyDown={handleKeyDown}
-                                        placeholder="Digite um gênero..."
-                                        className="w-full bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-xl px-4 py-2 text-[var(--text-primary)] focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary transition-all text-sm"
-                                    />
-                                    {suggestions.length > 0 && (
-                                        <div className="absolute z-10 w-full mt-1 bg-[#25252b] border border-white/10 rounded-xl shadow-xl max-h-48 overflow-y-auto">
-                                            {suggestions.map(genre => (
-                                                <div key={genre} onClick={() => addGenre(genre)} className="px-4 py-2 text-sm text-gray-300 hover:bg-primary/20 hover:text-white cursor-pointer transition-colors">{genre}</div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* 3. Privacidade */}
-                        <section className="space-y-4">
-                            <h3 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-2">
-                                <Lock className="w-4 h-4" /> Privacidade
-                            </h3>
-                            <div className="bg-[var(--bg-primary)]/30 border border-[var(--border-color)] rounded-xl p-4 flex items-center justify-between">
-                                <div>
-                                    <h4 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
-                                        {formData.isPublic ? <Globe className="w-4 h-4 text-green-400" /> : <Lock className="w-4 h-4 text-red-400" />}
-                                        Perfil Público
-                                    </h4>
-                                    <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-[80%]">
-                                        Se desativado, seu perfil público ficará inacessível para outras pessoas.
-                                    </p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input type="checkbox" className="sr-only peer" checked={formData.isPublic} onChange={(e) => setFormData(prev => ({ ...prev, isPublic: e.target.checked }))} />
-                                    <div className="w-11 h-6 bg-[var(--bg-tertiary)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
-                                </label>
-                            </div>
-                        </section>
-
-                        {/* 4. Conexões */}
-                        <section className="space-y-4">
-                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-                                <LinkIcon className="w-4 h-4" /> Conexões
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm text-[var(--text-secondary)] flex items-center gap-2">
-                                        {/* Discord icon */}
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#5865F2"><path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057c.002.022.014.043.031.056A19.9 19.9 0 0 0 5.99 21.2a.077.077 0 0 0 .084-.026c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.088.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.029z"/></svg>
-                                        Discord
-                                    </label>
-                                    <input type="text" name="social_discord" value={formData.connections.discord} onChange={handleChange} placeholder="Seu username do Discord" className="w-full bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-xl px-4 py-2 text-[var(--text-primary)] focus:border-[#5865F2] focus:outline-none focus:ring-1 focus:ring-[#5865F2] transition-all text-sm" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm text-[var(--text-secondary)] flex items-center gap-2">
-                                        {/* X/Twitter icon */}
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                                        Twitter / X
-                                    </label>
-                                    <input type="text" name="social_twitter" value={formData.connections.twitter} onChange={handleChange} placeholder="@usuario" className="w-full bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-xl px-4 py-2 text-[var(--text-primary)] focus:border-[#1DA1F2] focus:outline-none focus:ring-1 focus:ring-[#1DA1F2] transition-all text-sm" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm text-[var(--text-secondary)] flex items-center gap-2">
-                                        {/* Instagram icon */}
-                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="url(#ig)"><defs><linearGradient id="ig" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stopColor="#f09433"/><stop offset="25%" stopColor="#e6683c"/><stop offset="50%" stopColor="#dc2743"/><stop offset="75%" stopColor="#cc2366"/><stop offset="100%" stopColor="#bc1888"/></linearGradient></defs><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-                                        Instagram
-                                    </label>
-                                    <input type="text" name="social_instagram" value={formData.connections.instagram} onChange={handleChange} placeholder="@usuario" className="w-full bg-[var(--bg-primary)]/50 border border-[var(--border-color)] rounded-xl px-4 py-2 text-[var(--text-primary)] focus:border-[#E1306C] focus:outline-none focus:ring-1 focus:ring-[#E1306C] transition-all text-sm" />
-                                </div>
-                            </div>
-                        </section>
-                    </div>
+  useEffect(() => () => {
+    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    objectUrlsRef.current.clear();
+  }, []);
 
 
-                    {/* Footer */}
-                    <div className="p-4 md:p-6 border-t border-[var(--border-color)] bg-[var(--bg-tertiary)] flex justify-end gap-2 md:gap-3">
-                        <button onClick={onClose} className="px-4 md:px-6 py-2 md:py-2.5 rounded-xl border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]/10 hover:text-[var(--text-primary)] transition-all font-medium text-sm md:text-base">
-                            Cancelar
-                        </button>
-                        <button disabled={uploading} onClick={handleSubmit} className="px-4 md:px-6 py-2 md:py-2.5 rounded-xl bg-primary text-white font-bold hover:bg-primary-hover shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base">
-                            {uploading ? 'Enviando...' : <><Save className="w-4 h-4" /> Salvar Alterações</>}
-                        </button>
-                    </div>
-                </div>
+  const trackObjectUrl = (url) => {
+    objectUrlsRef.current.add(url);
+    return url;
+  };
+
+  const releaseObjectUrl = (url) => {
+    if (!url || !objectUrlsRef.current.has(url)) return;
+    URL.revokeObjectURL(url);
+    objectUrlsRef.current.delete(url);
+  };
+
+  const closeCropModal = () => {
+    releaseObjectUrl(cropModal.src);
+    setCropModal({ open: false, src: '', type: '' });
+  };
+
+  const handleFileChange = (event, type) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.warning('Selecione um arquivo de imagem.', 'Imagem inválida');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.warning('A imagem deve ter no máximo 10 MB.', 'Arquivo muito grande');
+      return;
+    }
+
+    const src = trackObjectUrl(URL.createObjectURL(file));
+    setCropModal({ open: true, src, type });
+  };
+
+  const handleCropConfirm = (blob, previewUrl) => {
+    const trackedPreview = trackObjectUrl(previewUrl);
+    const file = new File([blob], `${cropModal.type}_${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+    if (cropModal.type === 'banner') {
+      releaseObjectUrl(bannerPreview);
+      setBannerFile(file);
+      setBannerPreview(trackedPreview);
+    } else {
+      releaseObjectUrl(photoPreview);
+      setPhotoFile(file);
+      setPhotoPreview(trackedPreview);
+    }
+    closeCropModal();
+  };
+
+  const removeImage = (type) => {
+    if (type === 'banner') {
+      releaseObjectUrl(bannerPreview);
+      setBannerPreview('');
+      setBannerFile(null);
+      setFormData((current) => ({ ...current, bannerURL: '' }));
+    } else {
+      releaseObjectUrl(photoPreview);
+      setPhotoPreview('');
+      setPhotoFile(null);
+      setFormData((current) => ({ ...current, photoURL: '' }));
+    }
+  };
+
+  const visibleGenres = useMemo(() => {
+    const search = genreSearch.trim().toLocaleLowerCase('pt-BR');
+    return ANIME_GENRES
+      .filter((genre) => !formData.favoriteGenres.includes(genre))
+      .filter((genre) => !search || genre.toLocaleLowerCase('pt-BR').includes(search))
+      .slice(0, 12);
+  }, [formData.favoriteGenres, genreSearch]);
+
+  if (!isOpen) return null;
+
+  const addGenre = (genre) => {
+    if (formData.favoriteGenres.length >= 8) {
+      toast.warning('Escolha no máximo 8 gêneros para manter o perfil objetivo.', 'Gêneros');
+      return;
+    }
+    setFormData((current) => ({ ...current, favoriteGenres: [...current.favoriteGenres, genre] }));
+    setGenreSearch('');
+  };
+
+  const removeGenre = (genre) => {
+    setFormData((current) => ({
+      ...current,
+      favoriteGenres: current.favoriteGenres.filter((item) => item !== genre),
+    }));
+  };
+
+  const updateConnection = (platform, value) => {
+    setFormData((current) => ({
+      ...current,
+      connections: { ...current.connections, [platform]: value },
+    }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const displayName = formData.displayName.trim();
+    if (displayName.length < 3) {
+      setActiveTab('identity');
+      toast.warning('O nome precisa ter pelo menos 3 caracteres.', 'Perfil');
+      return;
+    }
+    if (!user?.uid) return;
+
+    setSaving(true);
+    try {
+      const updatedData = {
+        ...formData,
+        displayName,
+        about: formData.about.trim(),
+        connections: Object.fromEntries(
+          Object.entries(formData.connections).map(([platform, value]) => [platform, normalizeConnectionValue(platform, value)]),
+        ),
+      };
+
+      const [bannerURL, photoURL] = await Promise.all([
+        bannerFile ? uploadImage(bannerFile, `users/${user.uid}/banner_${Date.now()}`) : null,
+        photoFile ? uploadImage(photoFile, `users/${user.uid}/avatar_${Date.now()}`) : null,
+      ]);
+      if (bannerURL) updatedData.bannerURL = bannerURL;
+      if (photoURL) updatedData.photoURL = photoURL;
+
+      await onSave(updatedData);
+      onClose();
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error);
+      if (error.code === 'storage/unauthorized') toast.error('O Firebase Storage recusou o upload.', 'Permissão');
+      else if (error.code === 'storage/canceled') toast.warning('Upload cancelado.', 'Imagem');
+      else toast.error(error.message || 'Não foi possível salvar o perfil.', 'Erro');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const bannerImage = bannerPreview || formData.bannerURL;
+  const photoImage = photoPreview || formData.photoURL;
+  const initials = (formData.displayName || 'PA').trim().slice(0, 2).toLocaleUpperCase('pt-BR');
+  const connectedCount = Object.values(formData.connections).filter(Boolean).length;
+  const isSubmitting = saving || uploading;
+
+  return (
+    <>
+      {cropModal.open && <ImageCropModal imageSrc={cropModal.src} type={cropModal.type} onConfirm={handleCropConfirm} onCancel={closeCropModal} />}
+
+      <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 backdrop-blur-md md:items-center md:p-4" onMouseDown={onClose}>
+        <form
+          onSubmit={handleSubmit}
+          onMouseDown={(event) => event.stopPropagation()}
+          className="flex h-[94dvh] w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl border border-border-color bg-bg-secondary shadow-2xl md:h-[92vh] md:max-h-[780px] md:rounded-3xl"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="edit-profile-title"
+        >
+          <header className="flex items-center justify-between border-b border-border-color px-5 py-4 md:px-7">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-button-accent">Seu espaço</p>
+              <h2 id="edit-profile-title" className="text-xl font-black text-text-primary md:text-2xl">Editar perfil</h2>
             </div>
-        </>
-    );
+            <button type="button" onClick={onClose} aria-label="Fechar edição de perfil" className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary"><X className="h-5 w-5" /></button>
+          </header>
+
+          <div className="grid min-h-0 flex-1 md:grid-cols-[220px_minmax(0,1fr)]">
+            <nav className="flex gap-2 overflow-x-auto border-b border-border-color bg-bg-tertiary/35 p-3 md:flex-col md:overflow-visible md:border-b-0 md:border-r md:p-4" aria-label="Seções do perfil">
+              {PROFILE_TABS.map((tab) => {
+                const Icon = tab.icon;
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    aria-current={active ? 'page' : undefined}
+                    className={clsx(
+                      'flex shrink-0 items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all md:w-full',
+                      active ? 'border-button-accent/30 bg-button-accent/10 text-text-primary' : 'border-transparent text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary',
+                    )}
+                  >
+                    <span className={clsx('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', active ? 'bg-button-accent text-text-on-primary' : 'bg-bg-primary')}><Icon className="h-4 w-4" /></span>
+                    <span>
+                      <span className="block text-sm font-black">{tab.label}{tab.id === 'connections' && connectedCount > 0 ? ` · ${connectedCount}` : ''}</span>
+                      <span className="hidden text-[10px] text-text-secondary md:block">{tab.description}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <main className="min-h-0 overflow-y-auto p-5 md:p-8">
+              {activeTab === 'appearance' && (
+                <section>
+                  <SectionIntro eyebrow="Identidade visual" title="Escolha o melhor enquadramento." description="Veja avatar e banner juntos antes de salvar. Toda imagem passa pelo recorte e é otimizada automaticamente." />
+
+                  <div className="overflow-hidden rounded-3xl border border-border-color bg-bg-primary shadow-xl">
+                    <div className="relative aspect-[16/5] min-h-36 overflow-hidden bg-[radial-gradient(circle_at_20%_20%,rgba(99,102,241,0.45),transparent_32%),linear-gradient(135deg,#18181b,#09090b)]">
+                      {bannerImage && <img src={bannerImage} alt="Prévia do banner" className="absolute inset-0 block h-full w-full object-cover" />}
+                      <div className="absolute inset-0 bg-gradient-to-t from-bg-primary via-transparent to-black/20" />
+                      <button type="button" onClick={() => bannerInputRef.current?.click()} className="absolute right-3 top-3 inline-flex items-center gap-2 rounded-xl bg-black/55 px-3 py-2 text-xs font-black text-white backdrop-blur-md transition-colors hover:bg-black/75"><Camera className="h-4 w-4" /> Alterar banner</button>
+                    </div>
+                    <div className="relative flex min-h-28 items-end gap-4 px-5 pb-5 pt-12 sm:px-7">
+                      <button type="button" onClick={() => photoInputRef.current?.click()} className="group absolute -top-12 left-5 aspect-square h-24 w-24 overflow-hidden rounded-full border-4 border-bg-primary bg-bg-tertiary p-0 leading-none shadow-2xl sm:left-7 sm:h-28 sm:w-28" aria-label="Alterar foto de perfil">
+                        {photoImage ? <img src={photoImage} alt="Prévia do avatar" className="absolute inset-0 block h-full w-full rounded-full object-cover" /> : <span className="absolute inset-0 flex items-center justify-center rounded-full text-2xl font-black text-button-accent">{initials}</span>}
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/55 text-white opacity-0 transition-opacity group-hover:opacity-100"><Camera className="h-5 w-5" /></span>
+                      </button>
+                      <div className="ml-28 min-w-0 sm:ml-32">
+                        <p className="truncate text-lg font-black text-text-primary">{formData.displayName || 'Seu nome'}</p>
+                        <p className="text-xs text-text-secondary">Prévia do cabeçalho do perfil</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div className="flex items-center gap-3 rounded-2xl border border-border-color bg-bg-tertiary/35 p-4">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-button-accent/10 text-button-accent"><ImagePlus className="h-5 w-5" /></span>
+                      <div className="min-w-0 flex-1"><p className="text-sm font-black text-text-primary">Banner</p><p className="text-xs text-text-secondary">Proporção 16:5 · 1600 × 500</p></div>
+                      {bannerImage && <button type="button" onClick={() => removeImage('banner')} aria-label="Remover banner" className="rounded-lg p-2 text-text-secondary hover:bg-red-500/10 hover:text-red-400"><Trash2 className="h-4 w-4" /></button>}
+                    </div>
+                    <div className="flex items-center gap-3 rounded-2xl border border-border-color bg-bg-tertiary/35 p-4">
+                      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"><UserRound className="h-5 w-5" /></span>
+                      <div className="min-w-0 flex-1"><p className="text-sm font-black text-text-primary">Avatar</p><p className="text-xs text-text-secondary">Exibição circular · 640 × 640</p></div>
+                      {photoImage && <button type="button" onClick={() => removeImage('avatar')} aria-label="Remover avatar" className="rounded-lg p-2 text-text-secondary hover:bg-red-500/10 hover:text-red-400"><Trash2 className="h-4 w-4" /></button>}
+                    </div>
+                  </div>
+
+                  <input ref={bannerInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFileChange(event, 'banner')} className="hidden" />
+                  <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => handleFileChange(event, 'avatar')} className="hidden" />
+                </section>
+              )}
+
+              {activeTab === 'identity' && (
+                <section>
+                  <SectionIntro eyebrow="Identidade" title="Conte um pouco sobre você." description="Um nome claro, uma bio curta e seus gêneros favoritos ajudam outras pessoas a encontrar afinidades." />
+                  <div className="space-y-5">
+                    <div>
+                      <div className="mb-2 flex justify-between"><label htmlFor="profile-display-name" className="text-sm font-bold text-text-primary">Nome de exibição</label><span className="text-xs text-text-secondary">{formData.displayName.length}/40</span></div>
+                      <input id="profile-display-name" type="text" maxLength="40" value={formData.displayName} onChange={(event) => setFormData((current) => ({ ...current, displayName: event.target.value }))} className="w-full rounded-xl border border-border-color bg-bg-primary/60 px-4 py-3 text-text-primary outline-none transition-colors focus:border-button-accent" />
+                    </div>
+
+                    <div>
+                      <div className="mb-2 flex justify-between"><label htmlFor="profile-about" className="text-sm font-bold text-text-primary">Bio</label><span className="text-xs text-text-secondary">{formData.about.length}/220</span></div>
+                      <textarea id="profile-about" rows="4" maxLength="220" value={formData.about} onChange={(event) => setFormData((current) => ({ ...current, about: event.target.value }))} placeholder="O que você gosta de assistir? Qual anime marcou sua vida?" className="w-full resize-none rounded-xl border border-border-color bg-bg-primary/60 px-4 py-3 text-sm leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-secondary/60 focus:border-button-accent" />
+                    </div>
+
+                    <div>
+                      <div className="mb-3 flex items-center justify-between"><div><p className="text-sm font-bold text-text-primary">Gêneros favoritos</p><p className="text-xs text-text-secondary">Escolha até 8 para manter sua identidade objetiva.</p></div><span className="rounded-lg bg-bg-primary px-2 py-1 text-xs font-black text-text-secondary">{formData.favoriteGenres.length}/8</span></div>
+                      {formData.favoriteGenres.length > 0 && <div className="mb-3 flex flex-wrap gap-2">{formData.favoriteGenres.map((genre) => <button key={genre} type="button" onClick={() => removeGenre(genre)} className="inline-flex items-center gap-1.5 rounded-full border border-button-accent/25 bg-button-accent/10 px-3 py-1.5 text-xs font-bold text-button-accent transition-colors hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400">{genre}<X className="h-3 w-3" /></button>)}</div>}
+                      <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" /><input type="search" value={genreSearch} onChange={(event) => setGenreSearch(event.target.value)} placeholder="Buscar um gênero" className="w-full rounded-xl border border-border-color bg-bg-primary/60 py-3 pl-10 pr-4 text-sm text-text-primary outline-none focus:border-button-accent" /></div>
+                      <div className="mt-3 flex flex-wrap gap-2">{visibleGenres.map((genre) => <button key={genre} type="button" onClick={() => addGenre(genre)} className="rounded-full border border-border-color px-3 py-1.5 text-xs font-bold text-text-secondary transition-colors hover:border-button-accent/50 hover:bg-button-accent/5 hover:text-text-primary">+ {genre}</button>)}</div>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {activeTab === 'connections' && (
+                <section>
+                  <SectionIntro eyebrow="Conexões" title="Menos links, mais conexões." description="Copie seu @ ou o link do perfil e use “Colar e conectar”. O PortalAnimes remove o endereço e guarda somente seu usuário." />
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {CONNECTION_PLATFORMS.map((platform) => <ConnectionEditor key={platform.id} platform={platform} value={formData.connections[platform.id]} onChange={(value) => updateConnection(platform.id, value)} toast={toast} />)}
+                  </div>
+                  <div className="mt-5 rounded-2xl border border-button-accent/15 bg-button-accent/5 p-4 text-xs leading-relaxed text-text-secondary"><p className="font-bold text-text-primary">Por que não pedimos login nas redes?</p><p className="mt-1">Assim suas credenciais nunca passam pelo PortalAnimes. O Discord é copiado com um toque; Instagram e X abrem diretamente no perfil informado.</p></div>
+                </section>
+              )}
+
+              {activeTab === 'privacy' && (
+                <section>
+                  <SectionIntro eyebrow="Privacidade" title="Você decide quem pode ver." description="A configuração afeta seu perfil público e sua biblioteca compartilhada, sem apagar nenhum dado." />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => setFormData((current) => ({ ...current, isPublic: true }))} className={clsx('rounded-2xl border p-5 text-left transition-all', formData.isPublic ? 'border-emerald-400/50 bg-emerald-500/10 shadow-lg shadow-emerald-500/5' : 'border-border-color bg-bg-tertiary/30 hover:border-border-color/80')}>
+                      <div className="flex items-start justify-between"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400"><Globe2 className="h-5 w-5" /></span>{formData.isPublic && <span className="rounded-full bg-emerald-500 px-2 py-1 text-[9px] font-black uppercase text-white">Ativo</span>}</div>
+                      <h4 className="mt-4 font-black text-text-primary">Perfil público</h4><p className="mt-1 text-xs leading-relaxed text-text-secondary">Outras pessoas podem visitar seu perfil, biblioteca, favoritos e conquistas.</p>
+                    </button>
+                    <button type="button" onClick={() => setFormData((current) => ({ ...current, isPublic: false }))} className={clsx('rounded-2xl border p-5 text-left transition-all', !formData.isPublic ? 'border-amber-400/50 bg-amber-500/10 shadow-lg shadow-amber-500/5' : 'border-border-color bg-bg-tertiary/30 hover:border-border-color/80')}>
+                      <div className="flex items-start justify-between"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400"><LockKeyhole className="h-5 w-5" /></span>{!formData.isPublic && <span className="rounded-full bg-amber-500 px-2 py-1 text-[9px] font-black uppercase text-black">Ativo</span>}</div>
+                      <h4 className="mt-4 font-black text-text-primary">Perfil privado</h4><p className="mt-1 text-xs leading-relaxed text-text-secondary">Somente você acessa seus dados. Seguidores verão que o perfil está fechado.</p>
+                    </button>
+                  </div>
+                </section>
+              )}
+            </main>
+          </div>
+
+          <footer className="flex items-center justify-between gap-3 border-t border-border-color bg-bg-tertiary/35 px-5 py-4 md:px-7">
+            <p className="hidden text-xs text-text-secondary sm:block">As alterações só entram no ar depois de salvar.</p>
+            <div className="ml-auto flex gap-2">
+              <button type="button" onClick={onClose} className="rounded-xl border border-border-color px-4 py-2.5 text-sm font-bold text-text-secondary hover:bg-bg-primary/50 hover:text-text-primary">Cancelar</button>
+              <button type="submit" disabled={isSubmitting} className="inline-flex min-w-36 items-center justify-center gap-2 rounded-xl bg-button-accent px-5 py-2.5 text-sm font-black text-text-on-primary shadow-lg shadow-button-accent/20 transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60">
+                {isSubmitting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {isSubmitting ? 'Salvando...' : 'Salvar perfil'}
+              </button>
+            </div>
+          </footer>
+        </form>
+      </div>
+    </>
+  );
 }

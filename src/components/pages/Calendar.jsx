@@ -147,7 +147,6 @@ export function Calendar() {
                                         transition={{ type: "spring", stiffness: 300, damping: 30 }}
                                     />
                                 )}
-                                {isActive && <span className="absolute inset-0 flex items-center justify-center z-10">{window.innerWidth < 640 && day.short ? day.short : day.label}</span>}
                             </button>
                         );
                     })}

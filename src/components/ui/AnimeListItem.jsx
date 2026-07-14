@@ -1,9 +1,10 @@
 import { Star, Users, Calendar, MonitorPlay, Film, PlayCircle, CheckCircle, Clock, Trash2, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import clsx from 'clsx';
+import { ResponsiveImage } from '@/components/ui/ResponsiveImage';
 
 export function AnimeListItem({
-    id, title, image, score, synopsis, status, members, year, episodes, totalEp, type, genres,
+    id, title, image, smallImage, score, synopsis, status, year, episodes, totalEp, type, genres,
     showPersonalProgress, currentEp, userScore, onRemove, role
 }) {
     // Truncate synopsis
@@ -47,8 +48,11 @@ export function AnimeListItem({
 
             {/* Poster - Fixed width for mobile and desktop */}
             <div className="shrink-0 w-24 sm:w-[100px] aspect-[2/3] rounded-lg overflow-hidden relative shadow-md">
-                <img
+                <ResponsiveImage
                     src={image}
+                    fallbackSrc={smallImage}
+                    srcSet={smallImage && smallImage !== image ? `${smallImage} 160w, ${image} 320w` : undefined}
+                    sizes="(max-width: 639px) 96px, 100px"
                     alt={title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                     loading="lazy"

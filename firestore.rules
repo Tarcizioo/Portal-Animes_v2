@@ -24,6 +24,101 @@ service cloud.firestore {
       return text == null || (text is string && text.size() <= max);
     }
 
+    // Validate follow/follower snapshot docs
+    function isValidFollowSnapshot() {
+      return request.resource.data.keys().hasOnly(['displayName', 'photoURL', 'followedAt'])
+             && isValidString(request.resource.data.displayName, 1, 100)
+             && isOptionalString(request.resource.data.photoURL, 2000)
+             && request.resource.data.followedAt == request.time;
+    }
+
+    function isValidStudioFavorite(studioId) {
+      return request.resource.data.keys().hasOnly(['id', 'mal_id', 'name', 'image', 'addedAt'])
+             && request.resource.data.id == studioId
+             && request.resource.data.mal_id == studioId
+             && isValidString(request.resource.data.id, 1, 120)
+             && isValidString(request.resource.data.name, 1, 120)
+             && isOptionalString(request.resource.data.image, 2000)
+             && request.resource.data.addedAt == request.time;
+    }
+
+    // Both sides of a follow relation must be created or deleted atomically.
+    function followPairExists(followerUid, targetUid) {
+      return existsAfter(/databases/$(database)/documents/users/$(followerUid)/following/$(targetUid))
+             && existsAfter(/databases/$(database)/documents/users/$(targetUid)/followers/$(followerUid));
+    }
+
+    function followPairIsDeleted(followerUid, targetUid) {
+      return !existsAfter(/databases/$(database)/documents/users/$(followerUid)/following/$(targetUid))
+             && !existsAfter(/databases/$(database)/documents/users/$(targetUid)/followers/$(followerUid));
+    }
+
+    // Validate notification type
+    function isValidNotificationType(type) {
+      return type in ['profile_view', 'comment_like', 'new_follower'];
+    }
+
+    // Validate notification payloads created by authenticated actors
+    function isValidNotificationCreate(targetUserId) {
+      return request.resource.data.keys().hasOnly([
+               'type', 'actorUid', 'actorName', 'actorAvatar',
+               'content', 'link', 'animeId', 'animeTitle',
+               'read', 'createdAt'
+             ])
+             && request.auth.uid != targetUserId
+             && request.resource.data.actorUid == request.auth.uid
+             && request.resource.data.read == false
+             && request.resource.data.createdAt == request.time
+             && isValidNotificationType(request.resource.data.type)
+             && isValidString(request.resource.data.content, 1, 300)
+             && isOptionalString(request.resource.data.actorName, 100)
+             && isOptionalString(request.resource.data.actorAvatar, 2000)
+             && isOptionalString(request.resource.data.link, 200)
+             && (
+               (
+                 request.resource.data.type in ['profile_view', 'new_follower']
+                 && request.resource.data.link == '/u/' + request.auth.uid
+                 && request.resource.data.animeId == null
+                 && request.resource.data.animeTitle == null
+               )
+               ||
+               (
+                 request.resource.data.type == 'comment_like'
+                 && request.resource.data.animeId is string
+                 && request.resource.data.link == '/anime/' + request.resource.data.animeId
+                 && isOptionalString(request.resource.data.animeTitle, 200)
+               )
+             );
+    }
+
+    // Validate that comment likes only toggle the current user's uid
+    function isValidCommentLikeToggle() {
+      let oldLiked = resource.data.likedBy is list ? resource.data.likedBy : [];
+      let newLiked = request.resource.data.likedBy is list ? request.resource.data.likedBy : [];
+      let oldHasCurrentUser = oldLiked.hasAny([request.auth.uid]);
+      let newHasCurrentUser = newLiked.hasAny([request.auth.uid]);
+
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likes'])
+             && request.resource.data.likes is int
+             && (
+               (
+                 !oldHasCurrentUser
+                 && newHasCurrentUser
+                 && newLiked.size() == oldLiked.size() + 1
+                 && request.resource.data.likes == resource.data.likes + 1
+                 && newLiked.hasAll(oldLiked)
+               )
+               ||
+               (
+                 oldHasCurrentUser
+                 && !newHasCurrentUser
+                 && newLiked.size() == oldLiked.size() - 1
+                 && request.resource.data.likes == resource.data.likes - 1
+                 && oldLiked.hasAll(newLiked)
+               )
+             );
+    }
+
     // Validate Integer Range
     function isValidInt(num, min, max) {
       return num is int && num >= min && num <= max;
@@ -62,16 +157,10 @@ service cloud.firestore {
       // CREATE: Only the owner can create their profile document.
       allow create: if isOwner(userId);
 
-      // UPDATE:
-      // a) Owner can update any field (with activityLog validation).
-      // b) Any authenticated user can increment/decrement the follow counters
-      //    (followersCount, followingCount) — but ONLY those two fields.
-      allow update: if (isOwner(userId)
-                        && (!request.resource.data.keys().hasAny(['activityLog'])
-                            || request.resource.data.activityLog is map))
-                    || (isAuthenticated()
-                        && request.resource.data.diff(resource.data).affectedKeys()
-                             .hasOnly(['followersCount', 'followingCount']));
+      // UPDATE: only the owner can update profile data.
+      allow update: if isOwner(userId)
+                    && (!request.resource.data.keys().hasAny(['activityLog'])
+                        || request.resource.data.activityLog is map);
 
       // DELETE: Only owner.
       allow delete: if isOwner(userId);
@@ -97,33 +186,53 @@ service cloud.firestore {
                      && isValidString(request.resource.data.name, 1, 100);
       }
 
-      // 3. Notifications
+      // 3. Favorite studios
+      match /followed_studios/{studioId} {
+        allow read: if isOwner(userId) || isUserPublic(userId);
+        allow create, update: if isOwner(userId) && isValidStudioFavorite(studioId);
+        allow delete: if isOwner(userId);
+      }
+
+      // 4. Notifications
       // CREATE: Any authenticated user can create a notification for any user
       //         (ex: visitor sends a profile_view notif to the profile owner)
       // READ/UPDATE/DELETE: Only the owner can manage their own notifications
       match /notifications/{notifId} {
-        allow create: if isAuthenticated();
-        allow read, update, delete: if isOwner(userId);
+        allow create: if isValidNotificationCreate(userId);
+        allow read: if isOwner(userId);
+        allow update: if isOwner(userId)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+                      && request.resource.data.read is bool;
+        allow delete: if isOwner(userId);
       }
       
-      // 4. Following list (who this user follows)
-      // READ: public. WRITE: only the follower themselves can add/remove.
+      // 5. Following list (who this user follows)
+      // READ: public. Writes must be atomic with the matching follower document.
       match /following/{targetUid} {
         allow read: if true;
-        allow write: if isOwner(userId);
+        allow create: if isOwner(userId)
+                      && targetUid != userId
+                      && isValidFollowSnapshot()
+                      && followPairExists(userId, targetUid);
+        allow delete: if isAuthenticated()
+                      && (request.auth.uid == userId || request.auth.uid == targetUid)
+                      && followPairIsDeleted(userId, targetUid);
       }
 
-      // 5. Followers list (who follows this user)
-      // READ: public. WRITE: only the follower (request.auth.uid == targetUid in the parent path)
+      // 6. Followers list (who follows this user)
+      // READ: public. Writes must be atomic with the matching following document.
       match /followers/{followerUid} {
         allow read: if true;
-        allow write: if isAuthenticated() && request.auth.uid == followerUid;
+        allow create: if isAuthenticated()
+                      && request.auth.uid == followerUid
+                      && followerUid != userId
+                      && isValidFollowSnapshot()
+                      && followPairExists(followerUid, userId);
+        allow delete: if isAuthenticated()
+                      && (request.auth.uid == followerUid || request.auth.uid == userId)
+                      && followPairIsDeleted(followerUid, userId);
       }
 
-      // Default: Private
-      match /{document=**} {
-        allow read, write: if isOwner(userId);
-      }
     }
     
     // --- COMMENTS --
@@ -133,23 +242,33 @@ service cloud.firestore {
       
       // CREATE: Authenticated users, MUST use their own Auth UID
       allow create: if isAuthenticated()
+                    && request.resource.data.keys().hasOnly([
+                      'animeId', 'userId', 'userName',
+                      'userAvatar', 'content', 'createdAt',
+                      'likes', 'likedBy'
+                    ])
+                    && request.resource.data.animeId is string
                     && request.resource.data.userId == request.auth.uid
+                    && isValidString(request.resource.data.userName, 1, 100)
+                    && isOptionalString(request.resource.data.userAvatar, 2000)
                     && isValidString(request.resource.data.content, 1, 500)
-                    && request.resource.data.createdAt == request.time;
+                    && request.resource.data.createdAt == request.time
+                    && request.resource.data.likes == 0
+                    && request.resource.data.likedBy is list
+                    && request.resource.data.likedBy.size() == 0;
                     
       // UPDATE:
       // a) Qualquer usuário logado pode curtir/descurtir (atualiza likedBy + likes)
       // b) Só o autor pode editar o conteúdo do comentário
       allow update: if isAuthenticated() && (
         // Like toggle: só modifica likedBy e likes, não muda userId nem content
-        (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likedBy', 'likes'])
-        )
+        isValidCommentLikeToggle()
         ||
         // Edição de conteúdo: apenas o autor
         (
           resource.data.userId == request.auth.uid
           && request.resource.data.userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content'])
           && isValidString(request.resource.data.content, 1, 500)
         )
       );

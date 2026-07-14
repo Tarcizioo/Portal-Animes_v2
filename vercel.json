@@ -1,24 +1,11 @@
 {
   "rewrites": [
     {
-      "source": "/api/jikan/:path*",
-      "destination": "https://api.jikan.moe/v4/:path*"
-    },
-    {
-      "source": "/(.*)",
+      "source": "/((?!api/).*)",
       "destination": "/index.html"
     }
   ],
   "headers": [
-    {
-      "source": "/api/jikan/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, s-maxage=1800, stale-while-revalidate=3600"
-        }
-      ]
-    },
     {
       "source": "/(.*)",
       "headers": [
@@ -40,7 +27,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: data: blob:; img-src 'self' https: data: blob:; font-src 'self' https: data:;"
+          "value": "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: wss: data: blob:; img-src 'self' https: data:; font-src 'self' https: data:;"
         }
       ]
     }

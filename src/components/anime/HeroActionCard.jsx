@@ -1,5 +1,4 @@
 import { Plus, Heart, Trash2, Star, ChevronDown } from 'lucide-react';
-import { clsx } from 'clsx';
 
 export function HeroActionCard({ anime, libraryEntry, status, handleStatusChange, handleIncrement, updateProgress, toggleFavorite, currentEp, totalEp, updateRating, onRemove }) {
     if (!libraryEntry) {

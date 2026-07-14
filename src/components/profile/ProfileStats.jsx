@@ -1,91 +1,45 @@
-import { TrendingUp, Star } from 'lucide-react';
+import { CheckCircle2, LibraryBig, PlaySquare, Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 
-// ─── Skeleton de um único card de stat ───────────────────────────────────────
-function StatCardSkeleton() {
-  return (
-    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] p-3 md:p-5 rounded-xl md:rounded-2xl flex flex-col gap-2 relative overflow-hidden">
-      <Skeleton className="h-3 w-3/4 rounded-md" />
-      <Skeleton className="h-7 md:h-9 w-1/2 rounded-md mt-1" />
-    </div>
-  );
-}
+const STAT_STYLES = {
+  library: 'bg-button-accent/10 text-button-accent ring-button-accent/15',
+  completed: 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/15',
+  episodes: 'bg-cyan-500/10 text-cyan-400 ring-cyan-500/15',
+  score: 'bg-amber-400/10 text-amber-300 ring-amber-400/15',
+};
 
-// ─── Componente principal ─────────────────────────────────────────────────────
 export function ProfileStats({ library = [], isLoading = false }) {
-  // Skeleton enquanto os dados não chegaram
   if (isLoading) {
-    return (
-      <div className="grid grid-cols-3 gap-2 md:gap-4">
-        <StatCardSkeleton />
-        <StatCardSkeleton />
-        <StatCardSkeleton />
-      </div>
-    );
+    return <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">{[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-24 rounded-2xl" />)}</div>;
   }
 
-  // Calcular Estatísticas Reais
-  const completedAnimes = library.filter(a => a.status === 'completed').length;
-  const totalEpisodes = library.reduce((acc, curr) => acc + (curr.currentEp || 0), 0);
-
-  const ratedAnimes = library.filter(a => a.score > 0);
-  const meanScore = ratedAnimes.length > 0
-    ? (ratedAnimes.reduce((acc, curr) => acc + curr.score, 0) / ratedAnimes.length).toFixed(1)
-    : '0.0';
-
+  const items = Array.isArray(library) ? library : [];
+  const completed = items.filter((anime) => anime.status === 'completed').length;
+  const episodes = items.reduce((total, anime) => total + Number(anime.currentEp || 0), 0);
+  const rated = items.filter((anime) => Number(anime.score || 0) > 0);
+  const meanScore = rated.length > 0
+    ? (rated.reduce((total, anime) => total + Number(anime.score), 0) / rated.length).toFixed(1)
+    : '—';
   const stats = [
-    {
-      label: 'Animes Completos',
-      value: completedAnimes,
-      icon: <TrendingUp className="w-4 h-4" />,
-      color: 'text-green-500',
-      change: null,
-      bgGlow: 'bg-primary/20',
-    },
-    {
-      label: 'Episódios Vistos',
-      value: totalEpisodes.toLocaleString('pt-BR'),
-      icon: <span className="text-xs">eps</span>,
-      color: 'text-gray-400',
-      change: null,
-      bgGlow: 'bg-blue-500/20',
-    },
-    {
-      label: 'Nota Média',
-      value: meanScore,
-      icon: <Star className="w-4 h-4 fill-yellow-500 text-yellow-500" />,
-      color: null,
-      change: null,
-      bgGlow: 'bg-yellow-500/20',
-    },
+    { id: 'library', label: 'Na biblioteca', value: items.length, icon: LibraryBig },
+    { id: 'completed', label: 'Concluídos', value: completed, icon: CheckCircle2 },
+    { id: 'episodes', label: 'Episódios vistos', value: episodes.toLocaleString('pt-BR'), icon: PlaySquare },
+    { id: 'score', label: 'Nota média', value: meanScore, icon: Star },
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2 md:gap-4">
-      {stats.map((stat, index) => (
-        <div
-          key={index}
-          className="bg-[var(--bg-secondary)] backdrop-blur-md border border-[var(--border-color)] p-3 md:p-5 rounded-xl md:rounded-2xl flex flex-col gap-0.5 md:gap-1 relative overflow-hidden group hover:bg-[var(--bg-tertiary)] transition-all"
-        >
-          <div className={`absolute -right-4 -top-4 w-20 h-20 rounded-full blur-2xl group-hover:bg-opacity-50 transition-all ${stat.bgGlow}`} />
-          <span className="text-[var(--text-secondary)] text-[10px] md:text-sm font-medium leading-tight">
-            {stat.label}
-          </span>
-          <div className="flex items-end gap-1 md:gap-2">
-            <span className="text-xl md:text-3xl font-bold text-[var(--text-primary)]">
-              {stat.value}
-            </span>
-            {stat.change && (
-              <span className={`text-xs font-bold mb-0.5 md:mb-1.5 flex items-center ${stat.color}`}>
-                {stat.icon} {stat.change}
-              </span>
-            )}
-            {!stat.change && stat.icon && (
-              <span className="mb-0.5 md:mb-1.5">{stat.icon}</span>
-            )}
+    <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      {stats.map((stat) => {
+        const Icon = stat.icon;
+        return (
+          <div key={stat.id} className="group relative overflow-hidden rounded-2xl border border-border-color bg-bg-secondary p-4 shadow-lg shadow-black/5 transition-transform hover:-translate-y-0.5 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div><p className="text-[10px] font-black uppercase tracking-[0.14em] text-text-secondary">{stat.label}</p><p className="mt-2 text-2xl font-black tracking-tight text-text-primary sm:text-3xl">{stat.value}</p></div>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${STAT_STYLES[stat.id]}`}><Icon className="h-4 w-4" /></span>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

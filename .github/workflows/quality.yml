@@ -1,0 +1,44 @@
+name: Quality
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-rules:
+    name: Build and Firestore rules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java for the Firestore Emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint source code
+        run: npm run lint
+
+      - name: Test React components and utilities
+        run: npm test
+
+      - name: Build application
+        run: npm run build
+
+      - name: Test Firestore security rules
+        run: npx --yes firebase-tools@15.8.0 emulators:exec --only firestore "npm run test:rules"

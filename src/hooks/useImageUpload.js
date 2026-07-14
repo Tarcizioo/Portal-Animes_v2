@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { useAuth } from '@/context/AuthContext';
 
 export function useImageUpload() {
-    const { user } = useAuth();
     const [uploading, setUploading] = useState(false);
 
     /**

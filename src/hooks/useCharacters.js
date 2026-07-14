@@ -1,58 +1,38 @@
-import { useState, useEffect, useCallback } from 'react';
-import { jikanApi } from '@/services/api';
+import { useMemo } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { anilistApi } from '@/services/anilistApi';
+import { dedupeByMalId } from '@/utils/dedupeByMalId';
+
+const STALE_TIME_24H = 1000 * 60 * 60 * 24;
 
 export function useCharacters() {
-    const [characters, setCharacters] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [page, setPage] = useState(1);
-    const [hasMore, setHasMore] = useState(true);
+    const query = useInfiniteQuery({
+        queryKey: ['top-characters-anilist-infinite'],
+        queryFn: ({ pageParam }) => anilistApi.getTopCharacters(pageParam, 25),
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => {
+            const pagination = lastPage?.pagination;
+            if (!pagination?.has_next_page) return undefined;
+            return (pagination.current_page || 0) + 1;
+        },
+        staleTime: STALE_TIME_24H,
+        gcTime: STALE_TIME_24H,
+        retry: 2,
+        retryDelay: (attempt) => Math.min(1000 * (attempt + 1), 3000),
+    });
 
-    useEffect(() => {
-        let isMounted = true;
+    const characters = useMemo(() => {
+        const allCharacters = query.data?.pages.flatMap((page) => page.data || []) || [];
+        return dedupeByMalId(allCharacters);
+    }, [query.data]);
 
-        async function fetchCharacters() {
-            try {
-                setLoading(true);
-
-                // Delay para evitar bloqueio da API (429) e melhorar UX do skeleton (if needed, but api.js handles basic rate limits)
-                // Keeping a small delay for UI smoothness if desired, or relying on api.js
-                // await new Promise(resolve => setTimeout(resolve, 600)); 
-
-                const json = await jikanApi.getTopCharacters(`?page=${page}&limit=25`);
-
-                if (!isMounted) return;
-
-                const data = json.data || [];
-                const pagination = json.pagination || {};
-
-                setCharacters(prev => {
-                    // Se for página 1, substitui tudo.
-                    if (page === 1) return data;
-
-                    // Filtro extra de segurança para evitar duplicatas visuais
-                    const combined = [...prev, ...data];
-                    const unique = Array.from(new Map(combined.map(item => [item.mal_id, item])).values());
-                    return unique;
-                });
-
-                setHasMore(pagination.has_next_page || (data.length > 0 && data.length >= 25));
-
-            } catch (error) {
-                 console.error("Erro fetch characters:", error);
-            } finally {
-                if (isMounted) setLoading(false);
-            }
-        }
-
-        fetchCharacters();
-
-        return () => { isMounted = false; };
-    }, [page]);
-
-    const loadMore = useCallback(() => {
-        if (!loading && hasMore) setPage(prev => prev + 1);
-    }, [loading, hasMore]);
-
-    return { characters, loading, loadMore, hasMore };
+    return {
+        characters,
+        loading: query.isLoading || query.isFetchingNextPage,
+        initialLoading: query.isLoading,
+        loadMore: query.fetchNextPage,
+        hasMore: Boolean(query.hasNextPage),
+        error: query.error,
+        retry: query.refetch,
+    };
 }
-

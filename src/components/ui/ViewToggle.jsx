@@ -1,5 +1,6 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import clsx from 'clsx';
+import { createElement } from 'react';
 
 export function ViewToggle({ value, onChange, options }) {
     return (
@@ -11,17 +12,20 @@ export function ViewToggle({ value, onChange, options }) {
                     onClick={() => onChange(option.value)}
                     icon={option.icon}
                     label={option.label}
+                    ariaLabel={option.ariaLabel || option.label}
                 />
             ))}
         </div>
     );
 }
 
-function ToggleOption({ active, onClick, icon: Icon, label }) {
+function ToggleOption({ active, onClick, icon, label, ariaLabel }) {
     return (
         <button
+            type="button"
             onClick={onClick}
-            aria-label={label}
+            aria-label={ariaLabel}
+            aria-pressed={active}
             className={clsx(
                 "relative flex items-center justify-center px-4 py-2 rounded-lg transition-all z-10 bg-transparent border-none",
                 active ? "text-text-primary" : "text-text-secondary hover:text-text-primary hover:bg-white/5"
@@ -29,7 +33,7 @@ function ToggleOption({ active, onClick, icon: Icon, label }) {
             title={label}
         >
             {active && (
-                <motion.div
+                <Motion.div
                     layoutId="viewToggleBg"
                     className="absolute inset-0 bg-bg-secondary border border-border-color/50 rounded-lg shadow-sm"
                     initial={false}
@@ -38,7 +42,7 @@ function ToggleOption({ active, onClick, icon: Icon, label }) {
             )}
 
             <div className="flex items-center gap-2 relative z-20">
-                <Icon className={clsx("w-4 h-4", active && "text-primary")} />
+                {createElement(icon, { className: clsx("w-4 h-4", active && "text-primary") })}
                 {label && (
                     <span className="text-sm font-bold">{label}</span>
                 )}

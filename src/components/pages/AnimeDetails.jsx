@@ -27,7 +27,7 @@ export function AnimeDetails() {
     const { id } = useParams();
     console.log(`[AnimeDetails] Component rendering for ID: ${id}`);
 
-    const { anime, characters, recommendations, staff, loading, error } = useAnimeInfo(id);
+    const { anime, characters, recommendations, staff, loading, extrasLoading, error } = useAnimeInfo(id);
     console.log(`[AnimeDetails] useAnimeInfo result -> loading: ${loading}, animeExists: ${!!anime}, errorExists: ${!!error}`);
     
     const { user } = useAuth();
@@ -37,13 +37,6 @@ export function AnimeDetails() {
     usePageTitle(anime?.title || 'Detalhes');
 
     const libraryEntry = library.find(a => a.id.toString() === id);
-    const [status, setStatus] = useState('plan_to_watch');
-
-    useEffect(() => {
-        if (libraryEntry) {
-            setStatus(libraryEntry.status);
-        }
-    }, [libraryEntry]);
 
     const [isVisible, setIsVisible] = useState(false);
     const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
@@ -63,12 +56,10 @@ export function AnimeDetails() {
         if (libraryEntry) {
             await removeFromLibrary(libraryEntry.id);
             toast.success("Anime removido da biblioteca.");
-            setStatus('plan_to_watch'); // Reset status visual
         }
     };
 
     const handleStatusChange = (newStatus) => {
-        setStatus(newStatus);
         if (user) {
             addToLibrary(anime, newStatus);
         } else {
@@ -84,6 +75,7 @@ export function AnimeDetails() {
         }
     };
 
+    const status = libraryEntry?.status || 'plan_to_watch';
     const currentEp = libraryEntry?.currentEp || 0;
     const totalEp = anime?.episodes || 0;
 
@@ -309,7 +301,11 @@ export function AnimeDetails() {
                                 )}
                             </div>
 
-                            {anime.episodesList && anime.episodesList.length > 0 ? (
+                            {extrasLoading ? (
+                                <div className="p-8 text-center bg-bg-secondary rounded-xl border border-border-color">
+                                    <p className="text-text-secondary">Carregando episódios...</p>
+                                </div>
+                            ) : anime.episodesList && anime.episodesList.length > 0 ? (
                                 <EpisodesList
                                     episodes={anime.episodesList}
                                     currentEp={currentEp}
@@ -344,9 +340,16 @@ export function AnimeDetails() {
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 {recommendations?.slice(0, 5).map(rec => (
                                     <Link to={`/anime/${rec.entry.mal_id}`} key={rec.entry.mal_id} className="group relative aspect-[2/3] rounded-xl overflow-hidden bg-bg-secondary" onClick={() => window.scrollTo(0, 0)}>
-                                        <img src={rec.entry.images?.webp?.image_url || rec.entry.images?.jpg?.image_url} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <span className="text-xs font-bold text-white line-clamp-2">{rec.entry.title}</span>
+                                        <img
+                                            src={rec.entry.images?.webp?.large_image_url || rec.entry.images?.jpg?.large_image_url || rec.entry.images?.jpg?.image_url}
+                                            alt={rec.entry.title_english || rec.entry.title}
+                                            loading="lazy"
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                        />
+                                        <div className="absolute inset-0 flex items-end bg-gradient-to-t from-black/95 via-black/15 to-transparent p-3">
+                                            <span className="text-xs font-bold leading-snug text-white line-clamp-2 drop-shadow-md">
+                                                {rec.entry.title_english || rec.entry.title}
+                                            </span>
                                         </div>
                                     </Link>
                                 ))}

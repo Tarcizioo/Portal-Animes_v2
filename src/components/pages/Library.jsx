@@ -1,18 +1,19 @@
 import { useState, useMemo, useEffect } from 'react';
 
-import { AnimeCard } from '@/components/ui/AnimeCard';
-import { AnimeListItem } from '@/components/ui/AnimeListItem';
 import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { Filter, SlidersHorizontal, ChevronDown, Search, X, Trash2, Calendar, MonitorPlay, List, Library as LibraryIcon, RefreshCw, Sparkles, LayoutGrid } from 'lucide-react';
 import clsx from 'clsx';
 import { Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 import { useToast } from '@/context/ToastContext';
 import { SkeletonCard } from '@/components/ui/SkeletonCard';
 import { ViewToggle } from '@/components/ui/ViewToggle';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { LibraryOverview } from '@/components/library/LibraryOverview';
+import { ContinueWatching } from '@/components/library/ContinueWatching';
+import { LibraryAnimeItem } from '@/components/library/LibraryAnimeItem';
 
 const GENRES = [
     { id: 1, name: 'Ação' },
@@ -68,17 +69,21 @@ const containerVariants = {
     }
 };
 
-const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: {
-        opacity: 1,
-        y: 0,
-        transition: { duration: 0.3 }
-    }
-};
+const VIEW_OPTIONS = [
+    { value: 'grid', label: '', icon: LayoutGrid, ariaLabel: 'Visualizar em grade' },
+    { value: 'list', label: '', icon: List, ariaLabel: 'Visualizar em lista' },
+];
 
+const LIBRARY_STATUSES = [
+    { value: '', label: 'Todos', color: 'bg-text-secondary' },
+    { value: 'watching', label: 'Assistindo', color: 'bg-primary' },
+    { value: 'completed', label: 'Completos', color: 'bg-emerald-500' },
+    { value: 'plan_to_watch', label: 'Planejo assistir', color: 'bg-slate-400' },
+    { value: 'paused', label: 'Pausados', color: 'bg-amber-500' },
+    { value: 'dropped', label: 'Dropados', color: 'bg-red-500' },
+];
 export function Library() {
-    const { library, loading, syncLibraryData, removeFromLibrary } = useAnimeLibrary();
+    const { library, loading, syncLibraryData, removeFromLibrary, incrementProgress, updateStatus } = useAnimeLibrary();
     const [showMobileFilters, setShowMobileFilters] = useState(false);
 
     // --- PERSISTÊNCIA DE VIEW MODE ---
@@ -96,7 +101,7 @@ export function Library() {
             try {
                 await removeFromLibrary(animeToRemove.id);
                 toast.success(`${animeToRemove.title} removido com sucesso.`);
-            } catch (error) {
+            } catch {
                 toast.error("Erro ao remover anime.");
             }
             setAnimeToRemove(null);
@@ -110,19 +115,32 @@ export function Library() {
         localStorage.setItem('anime_lib_view_mode', viewMode);
     }, [viewMode]);
 
+    useEffect(() => {
+        if (!showMobileFilters) return undefined;
+
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setShowMobileFilters(false);
+        };
+
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [showMobileFilters]);
+
     const handleSync = async () => {
         if (isSyncing) return;
         setIsSyncing(true);
         toast.info("Iniciando sincronização de dados...");
 
         try {
-            await syncLibraryData((processed, total) => {
-                if (processed % 5 === 0) {
-                    // Atualiza toast a cada 5 (opcional, só para nao floodar)
-                }
-            });
+            await syncLibraryData();
             toast.success("Biblioteca sincronizada com sucesso!");
-        } catch (error) {
+        } catch {
             toast.error("Erro ao sincronizar dados.");
         } finally {
             setIsSyncing(false);
@@ -268,6 +286,20 @@ export function Library() {
     };
 
     const hasActiveFilters = filters.q || filters.libraryStatus || filters.genres.length > 0 || filters.year || filters.season || filters.type;
+    const activeFilterCount = [
+        filters.q,
+        filters.libraryStatus,
+        filters.year,
+        filters.season,
+        filters.type,
+        filters.genres.length > 0,
+    ].filter(Boolean).length;
+    const continueWatching = useMemo(() => (
+        library
+            .filter((anime) => anime.status === 'watching' && (!anime.totalEp || (anime.currentEp || 0) < anime.totalEp))
+            .sort((a, b) => (b.lastUpdated?.seconds || 0) - (a.lastUpdated?.seconds || 0))
+            .slice(0, 4)
+    ), [library]);
 
     if (loading) {
         return (
@@ -323,7 +355,7 @@ export function Library() {
                 </div>
 
                 {/* Botão de Sync */}
-                <motion.button
+                <Motion.button
                     onClick={handleSync}
                     disabled={isSyncing}
                     whileHover={{ scale: 1.05 }}
@@ -335,50 +367,31 @@ export function Library() {
                 >
                     <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
                     {isSyncing ? 'Sincronizando...' : 'Sincronizar Dados'}
-                </motion.button>
+                </Motion.button>
             </div>
+
+            {library.length > 0 && (
+                <>
+                    <LibraryOverview library={library} />
+                   <ContinueWatching animes={continueWatching} onIncrement={incrementProgress} />
+                </>
+            )}
 
             <div className="flex flex-col lg:flex-row gap-8">
 
                 {/* --- SIDEBAR DE FILTROS --- */}
-                <aside className={clsx(
-                    "lg:w-72 flex-shrink-0 space-y-8",
-                    showMobileFilters ? "fixed inset-0 z-[60] bg-bg-secondary p-6 overflow-y-auto" : "hidden lg:block"
-                )}>
+                <aside
+                    role={showMobileFilters ? 'dialog' : undefined}
+                    aria-modal={showMobileFilters ? 'true' : undefined}
+                    aria-label={showMobileFilters ? 'Filtros da biblioteca' : undefined}
+                    className={clsx(
+                        "lg:w-72 flex-shrink-0 space-y-8 pb-24 lg:pb-0",
+                        showMobileFilters ? "fixed inset-0 z-[60] bg-bg-secondary p-6 overflow-y-auto" : "hidden lg:block"
+                    )}
+                >
                     <div className="flex items-center justify-between lg:hidden mb-6 border-b border-border-color pb-4">
                         <h2 className="text-2xl font-bold text-text-primary">Filtros</h2>
-                        <button onClick={() => setShowMobileFilters(false)} className="p-2 bg-bg-tertiary rounded-full text-text-primary"><X /></button>
-                    </div>
-
-                    {/* STATUS DO USUÁRIO */}
-                    <div className="space-y-3">
-                        <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider flex items-center gap-2">
-                            <SlidersHorizontal className="w-4 h-4 text-button-accent" /> Status
-                        </h3>
-                        <div className="flex flex-col gap-2">
-                            {[
-                                { val: 'watching', label: 'Assistindo', color: 'bg-primary' },
-                                { val: 'completed', label: 'Completos', color: 'bg-blue-500' },
-                                { val: 'plan_to_watch', label: 'Planejo Assistir', color: 'bg-gray-500' },
-                                { val: 'dropped', label: 'Dropados', color: 'bg-red-500' },
-                                { val: 'paused', label: 'Pausados', color: 'bg-yellow-500' },
-                            ].map(st => (
-                                <motion.button
-                                    key={st.val}
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => updateFilter('libraryStatus', filters.libraryStatus === st.val ? '' : st.val)}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-colors border-2 w-full text-left
-                                ${filters.libraryStatus === st.val
-                                            ? 'bg-bg-secondary border-button-accent text-text-primary shadow-lg'
-                                            : 'bg-bg-secondary/50 border-transparent hover:bg-bg-secondary hover:border-border-color text-text-secondary hover:text-text-primary'}
-                            `}
-                                >
-                                    <div className={`w-3 h-3 rounded-full ${st.color}`} />
-                                    <span className="font-medium">{st.label}</span>
-                                </motion.button>
-                            ))}
-                        </div>
+                        <button type="button" onClick={() => setShowMobileFilters(false)} aria-label="Fechar filtros" className="p-2 bg-bg-tertiary rounded-full text-text-primary"><X /></button>
                     </div>
 
                     {/* Busca */}
@@ -389,13 +402,14 @@ export function Library() {
                         <div className="relative">
                             <input
                                 type="text"
+                                aria-label="Pesquisar na biblioteca"
                                 value={filters.q}
                                 placeholder="Buscar na biblioteca..."
                                 className="w-full bg-bg-secondary border-2 border-border-color rounded-xl px-4 py-3 text-base text-text-primary focus:outline-none focus:border-button-accent focus:ring-4 focus:ring-button-accent/10 transition-all placeholder-text-secondary/60"
                                 onChange={(e) => updateFilter('q', e.target.value)}
                             />
                             {filters.q && (
-                                <button onClick={() => updateFilter('q', '')} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1">
+                                <button type="button" onClick={() => updateFilter('q', '')} aria-label="Limpar pesquisa" className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1">
                                     <X className="w-4 h-4" />
                                 </button>
                             )}
@@ -408,6 +422,7 @@ export function Library() {
                         <div className="space-y-2">
                             <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider flex items-center gap-2">  <Calendar className="w-3.5 h-3.5 text-button-accent" /> Ano </h3>
                             <select
+                                aria-label="Filtrar por ano"
                                 value={filters.year}
                                 onChange={(e) => updateFilter('year', e.target.value)}
                                 className="w-full bg-bg-secondary border-2 border-border-color rounded-xl px-2 py-2.5 text-sm text-text-primary focus:outline-none focus:border-button-accent focus:ring-2 focus:ring-button-accent/10 transition-all cursor-pointer appearance-none"
@@ -423,6 +438,7 @@ export function Library() {
                         <div className="space-y-2">
                             <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider flex items-center gap-2"> Temp. </h3>
                             <select
+                                aria-label="Filtrar por temporada"
                                 value={filters.season}
                                 onChange={(e) => updateFilter('season', e.target.value)}
                                 className="w-full bg-bg-secondary border-2 border-border-color rounded-xl px-2 py-2.5 text-sm text-text-primary focus:outline-none focus:border-button-accent focus:ring-2 focus:ring-button-accent/10 transition-all cursor-pointer appearance-none"
@@ -440,6 +456,7 @@ export function Library() {
                     <div className="space-y-2">
                         <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider flex items-center gap-2"> <MonitorPlay className="w-3.5 h-3.5 text-button-accent" /> Formato </h3>
                         <select
+                            aria-label="Filtrar por formato"
                             value={filters.type}
                             onChange={(e) => updateFilter('type', e.target.value)}
                             className="w-full bg-bg-secondary border-2 border-border-color rounded-xl px-3 py-2.5 text-sm text-text-primary focus:outline-none focus:border-button-accent focus:ring-2 focus:ring-button-accent/10 transition-all cursor-pointer appearance-none"
@@ -467,8 +484,10 @@ export function Library() {
                             {GENRES.map((g) => {
                                 const isSelected = filters.genres.includes(g.id);
                                 return (
-                                    <motion.button
+                                    <Motion.button
                                         key={g.id}
+                                        type="button"
+                                        aria-pressed={isSelected}
                                         whileHover={{ scale: 1.05 }}
                                         whileTap={{ scale: 0.95 }}
                                         onClick={() => handleGenreToggle(g.id)}
@@ -480,7 +499,7 @@ export function Library() {
                         `}
                                     >
                                         {g.name}
-                                    </motion.button>
+                                    </Motion.button>
                                 );
                             })}
                         </div>
@@ -489,66 +508,119 @@ export function Library() {
 
                     {/* Botão Limpar */}
                     {hasActiveFilters && (
-                        <motion.button
+                        <Motion.button
+                            type="button"
                             onClick={clearFilters}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
                             className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors text-sm font-bold uppercase tracking-wider"
                         >
                             <Trash2 className="w-4 h-4" /> Limpar Filtros
-                        </motion.button>
+                        </Motion.button>
                     )}
+
+                    <div className="sticky -bottom-6 -mx-6 border-t border-border-color bg-bg-secondary/95 p-4 backdrop-blur-xl lg:hidden">
+                        <button
+                            type="button"
+                            onClick={() => setShowMobileFilters(false)}
+                            className="w-full rounded-xl bg-button-accent py-3.5 font-bold text-text-on-primary shadow-lg shadow-button-accent/20"
+                        >
+                            Ver {filteredLibrary.length} {filteredLibrary.length === 1 ? 'anime' : 'animes'}
+                        </button>
+                    </div>
 
                 </aside>
 
                 {/* --- ÁREA PRINCIPAL --- */}
                 <div className="flex-1 min-w-0">
 
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 p-5 bg-bg-secondary border border-border-color rounded-2xl shadow-xl shadow-shadow-color/10">
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={() => setShowMobileFilters(true)}
-                                className="lg:hidden p-2.5 bg-button-accent text-text-on-primary rounded-lg shadow-lg shadow-button-accent/20"
-                            >
-                                <Filter className="w-5 h-5" />
+                    <div className="relative mb-4 lg:hidden">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
+                        <input
+                            type="search"
+                            aria-label="Pesquisar na biblioteca"
+                            value={filters.q}
+                            onChange={(event) => updateFilter('q', event.target.value)}
+                            placeholder="Buscar na biblioteca..."
+                            className="w-full rounded-xl border-2 border-border-color bg-bg-secondary py-3 pl-11 pr-11 text-text-primary outline-none transition-all placeholder:text-text-secondary/60 focus:border-button-accent focus:ring-4 focus:ring-button-accent/10"
+                        />
+                        {filters.q && (
+                            <button type="button" onClick={() => updateFilter('q', '')} aria-label="Limpar pesquisa" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-text-secondary hover:bg-bg-tertiary hover:text-text-primary">
+                                <X className="h-4 w-4" />
                             </button>
-                            <span className="text-base text-text-secondary">
-                                <strong className="text-text-primary text-lg">{filteredLibrary.length}</strong> animes na lista
-                            </span>
+                        )}
+                    </div>
+
+                    <div className="mb-8 overflow-hidden rounded-2xl border border-border-color bg-bg-secondary shadow-xl shadow-shadow-color/10">
+                        <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                            <div className="flex items-center gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMobileFilters(true)}
+                                    aria-label="Abrir filtros"
+                                    className="relative rounded-lg bg-button-accent p-2.5 text-text-on-primary shadow-lg shadow-button-accent/20 lg:hidden"
+                                >
+                                    <Filter className="h-5 w-5" />
+                                    {activeFilterCount > 0 && (
+                                        <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
+                                            {activeFilterCount}
+                                        </span>
+                                    )}
+                                </button>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-text-secondary">Sua coleção</p>
+                                    <p className="mt-0.5 text-sm text-text-secondary"><strong className="text-lg text-text-primary">{filteredLibrary.length}</strong> animes encontrados</p>
+                                </div>
+                            </div>
+
+                            <div className="flex w-full items-center gap-2 sm:w-auto">
+                                <ViewToggle value={viewMode} onChange={setViewMode} options={VIEW_OPTIONS} />
+                                <div className="relative min-w-0 flex-1 sm:flex-none">
+                                    <label className="sr-only" htmlFor="library-order">Ordenar biblioteca</label>
+                                    <select
+                                        id="library-order"
+                                        className="w-full appearance-none rounded-xl border-2 border-border-color bg-bg-tertiary py-2.5 pl-4 pr-11 text-sm font-medium text-text-primary transition-colors hover:bg-bg-primary focus:border-button-accent focus:outline-none focus:ring-2 focus:ring-button-accent/20 sm:w-auto"
+                                        value={filters.orderBy}
+                                        onChange={(event) => updateFilter('orderBy', event.target.value)}
+                                    >
+                                        <option value="recent_updated">Editados recentemente</option>
+                                        <option value="oldest_updated">Editados há mais tempo</option>
+                                        <option value="score">Minha nota</option>
+                                        <option value="title_asc">Título (A-Z)</option>
+                                        <option value="title_desc">Título (Z-A)</option>
+                                        <option value="favorites">Favoritos primeiro</option>
+                                    </select>
+                                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" />
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex items-center gap-3 w-full sm:w-auto">
-
-                            <ViewToggle
-                                value={viewMode}
-                                onChange={setViewMode}
-                                options={[
-                                    { value: 'grid', label: '', icon: LayoutGrid },
-                                    { value: 'list', label: '', icon: List },
-                                ]}
-                            />
-
-                            <span className="text-sm font-medium text-text-secondary hidden sm:inline whitespace-nowrap pl-2 border-l border-border-color">Ordenar por:</span>
-                            <div className="relative w-full sm:w-auto">
-                                <select
-                                    className="w-full sm:w-auto appearance-none bg-bg-tertiary border-2 border-border-color text-text-primary pl-4 pr-12 py-2.5 rounded-xl text-sm font-medium focus:outline-none focus:border-button-accent focus:ring-2 focus:ring-button-accent/20 cursor-pointer hover:bg-bg-secondary transition-colors"
-                                    value={filters.orderBy}
-                                    onChange={(e) => updateFilter('orderBy', e.target.value)}
-                                >
-                                    <option value="recent_updated">🕒 Editados Recentemente</option>
-                                    <option value="oldest_updated">🦕 Editados Antigos</option>
-                                    <option value="score">⭐ Minha Nota</option>
-                                    <option value="title_asc">🔤 Título (A-Z)</option>
-                                    <option value="title_desc">🔤 Título (Z-A)</option>
-                                    <option value="favorites">❤️ Favoritos Primeiro</option>
-                                </select>
-                                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
+                        <div className="border-t border-border-color bg-bg-primary/35 px-4 py-3 sm:px-5">
+                            <div className="flex items-center gap-3 overflow-x-auto pb-1 sm:pb-0">
+                                <span className="flex flex-shrink-0 items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-text-secondary">
+                                    <SlidersHorizontal className="h-3.5 w-3.5 text-button-accent" /> Status
+                                </span>
+                                <div className="h-5 w-px flex-shrink-0 bg-border-color" />
+                                {LIBRARY_STATUSES.map((status) => {
+                                    const isActive = filters.libraryStatus === status.value;
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={status.value || 'all'}
+                                            onClick={() => updateFilter('libraryStatus', status.value)}
+                                            aria-pressed={isActive}
+                                            className={`flex flex-shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold transition-all ${isActive ? 'border-button-accent bg-button-accent text-text-on-primary shadow-md shadow-button-accent/15' : 'border-border-color bg-bg-secondary text-text-secondary hover:border-button-accent/35 hover:text-text-primary'}`}
+                                        >
+                                            <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-current' : status.color}`} />
+                                            {status.label}
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
-
                     {/* Grid / List */}
-                    <motion.div
+                    <Motion.div
                         className={viewMode === 'grid'
                             ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"
                             : "flex flex-col gap-4"
@@ -560,7 +632,7 @@ export function Library() {
                     >
                         <AnimatePresence mode="popLayout">
                             {filteredLibrary.map((anime) => (
-                                <motion.div
+                                <Motion.div
                                     key={anime.id}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
@@ -568,26 +640,17 @@ export function Library() {
                                     transition={{ duration: 0.3 }}
                                     layout
                                 >
-                                    {viewMode === 'grid' ? (
-                                        <AnimeCard
-                                            key={`${anime.id}-card`}
-                                            {...anime}
-                                            onRemove={() => setAnimeToRemove(anime)}
-                                            image={anime.image || anime.smallImage}
-                                        />
-                                    ) : (
-                                        <AnimeListItem
-                                            key={`${anime.id}-list`}
-                                            {...anime}
-                                            image={anime.image || anime.smallImage}
-                                            showPersonalProgress // Flag para mostrar progresso pessoal na lista
-                                            onRemove={() => setAnimeToRemove(anime)}
-                                        />
-                                    )}
-                                </motion.div>
+                                    <LibraryAnimeItem
+                                        anime={anime}
+                                        viewMode={viewMode}
+                                        onRemove={() => setAnimeToRemove(anime)}
+                                        onIncrement={incrementProgress}
+                                        onStatusChange={updateStatus}
+                                    />
+                                </Motion.div>
                             ))}
                         </AnimatePresence>
-                    </motion.div>
+                    </Motion.div>
 
                     {filteredLibrary.length === 0 && (
                         <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -602,14 +665,14 @@ export function Library() {
                                 }
                             </p>
                             {hasActiveFilters ? (
-                                <motion.button
+                                <Motion.button
                                     onClick={clearFilters}
                                     whileHover={{ scale: 1.05 }}
                                     whileTap={{ scale: 0.95 }}
                                     className="px-6 py-3 bg-button-accent hover:bg-button-accent/90 text-text-on-primary rounded-xl font-bold transition-all shadow-lg"
                                 >
                                     Limpar filtros
-                                </motion.button>
+                                </Motion.button>
                             ) : (
                                 <Link
                                     to="/catalog"

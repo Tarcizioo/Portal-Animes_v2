@@ -9,7 +9,7 @@ export const queryClient = new QueryClient({
         queries: {
             gcTime: CACHE_TIME, // Tempo para garbage collection (antigo cacheTime)
             staleTime: CACHE_TIME, // Tempo que o dado é considerado fresco
-            retry: 2,
+            retry: 1,
         },
     },
 });

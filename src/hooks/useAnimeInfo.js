@@ -1,65 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { jikanApi } from '@/services/api';
+import { anilistApi } from '@/services/anilistApi';
 
-async function fetchAnimeDetails(id) {
-  // Use the built-in jikanApi wrapper which inherently handles backoffs and 429s
-  const safeCall = async (apiFunc, ...args) => {
-    try {
-      const res = await apiFunc(...args);
-      return { data: res?.data || [] };
-    } catch (e) {
-      console.warn(`Error in API call:`, e);
-      return { data: [] };
-    }
-  };
+const STALE_TIME = 1000 * 60 * 60;
 
-  // 1. Core Details (Critical)
-  let animeData;
-  try {
-      console.log(`[useAnimeInfo] Fetching core details for ID: ${id}...`);
-      const response = await jikanApi.getAnimeFullById(id);
-      animeData = response?.data;
-      console.log(`[useAnimeInfo] Core details fetched successfully for ID: ${id}`);
-  } catch (error) {
-      console.error(`[useAnimeInfo] Error fetching core details for ID ${id}:`, error);
-      throw new Error(`Falha ao carregar anime: ${error.message}`);
-  }
-
-  if (!animeData) {
-      console.error(`[useAnimeInfo] animeData is null for ID: ${id}`);
-      throw new Error("Anime não pôde ser resgatado da API.");
-  }
-
-  // 2. Sequentially fetch to avoid overwhelming Jikan (3 requests per sec limit)
-  console.log(`[useAnimeInfo] Fetching characters for ID: ${id}...`);
-  // Even though api.js has a retry, pacing it out improves UX and prevents long queue blocks
-  await new Promise(r => setTimeout(r, 340));
-  const charJson = await safeCall(jikanApi.getAnimeCharacters, id);
-  console.log(`[useAnimeInfo] Characters fetched for ID: ${id}`);
-  
-  await new Promise(r => setTimeout(r, 340));
-  console.log(`[useAnimeInfo] Fetching recommendations for ID: ${id}...`);
-  const recJson = await safeCall(jikanApi.getAnimeRecommendations, id);
-  console.log(`[useAnimeInfo] Recommendations fetched for ID: ${id}`);
-
-  await new Promise(r => setTimeout(r, 340));
-  console.log(`[useAnimeInfo] Fetching episodes for ID: ${id}...`);
-  const epJson = await safeCall(jikanApi.getAnimeEpisodes, id);
-  console.log(`[useAnimeInfo] Episodes fetched for ID: ${id}`);
-
-  await new Promise(r => setTimeout(r, 340));
-  console.log(`[useAnimeInfo] Fetching staff for ID: ${id}...`);
-  const staffJson = await safeCall(jikanApi.getAnimeStaff, id);
-  console.log(`[useAnimeInfo] Staff fetched for ID: ${id}`);
-
-  const data = animeData;
-
-  const formattedAnime = {
+function formatAnime(data) {
+  return {
     id: data.mal_id,
     title: data.title_english || data.title,
+    title_english: data.title_english,
     title_jp: data.title_japanese,
+    images: data.images,
     image: data.images?.webp?.large_image_url || data.images?.jpg?.large_image_url || data.images?.jpg?.image_url,
-    banner: data.trailer?.images?.maximum_image_url || data.images?.webp?.large_image_url || data.images?.jpg?.large_image_url,
+    banner: data.banner_image || data.trailer?.images?.maximum_image_url || data.images?.webp?.large_image_url || data.images?.jpg?.large_image_url,
     trailer: data.trailer?.embed_url,
     synopsis: data.synopsis,
     year: data.year || data.aired?.prop?.from?.year || '?',
@@ -73,43 +25,51 @@ async function fetchAnimeDetails(id) {
     themes: data.themes,
     demographics: data.demographics,
     rank: data.rank,
+    popularity: data.popularity,
     season: data.season,
     source: data.source,
     type: data.type,
     members: data.members,
     aired: data.aired,
     relations: data.relations || [],
-    episodesList: epJson.data || []
   };
+}
+
+async function fetchAnime(id, signal) {
+  const response = await anilistApi.getAnimeByMalId(id, { signal });
+  if (!response?.data) throw new Error('Anime nao pode ser carregado agora.');
 
   return {
-    anime: formattedAnime,
-    characters: charJson.data || [],
-    recommendations: recJson.data || [],
-    staff: staffJson.data || []
+    anime: formatAnime(response.data),
+    characters: response.characters || [],
+    recommendations: response.recommendations || [],
+    episodesList: [],
+    staff: response.staff || [],
   };
 }
 
 export function useAnimeInfo(id) {
-  console.log(`[useAnimeInfo] Hook called with ID: ${id}`);
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['anime', id],
-    queryFn: () => fetchAnimeDetails(id),
-    staleTime: 1000 * 60 * 60, // 1 hora de cache (evita chamadas repetidas)
-    enabled: !!id && id !== 'undefined',             // Só busca se tiver ID válido
-    retry: 1,                  // Tenta apenas mais 1 vez se falhar
+  const enabled = Boolean(id && id !== 'undefined');
+  const query = useQuery({
+    queryKey: ['anime-core', 'anilist-v4', id],
+    queryFn: ({ signal }) => fetchAnime(id, signal),
+    staleTime: STALE_TIME,
+    enabled,
+    retry: 2,
+    retryDelay: (attempt) => Math.min(1000 * (attempt + 1), 3000),
   });
 
-  if (error) {
-    console.error(`[useAnimeInfo] React Query Error for ID ${id}:`, error);
-  }
+  const anime = query.data?.anime
+    ? { ...query.data.anime, episodesList: query.data.episodesList || [] }
+    : null;
 
   return {
-    anime: data?.anime || null,
-    characters: data?.characters || [],
-    recommendations: data?.recommendations || [],
-    staff: data?.staff || [],
-    loading: isLoading,
-    error
+    anime,
+    characters: query.data?.characters || [],
+    recommendations: query.data?.recommendations || [],
+    staff: query.data?.staff || [],
+    loading: query.isLoading,
+    extrasLoading: false,
+    error: query.error,
   };
 }

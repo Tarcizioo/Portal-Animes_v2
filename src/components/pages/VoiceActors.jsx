@@ -1,10 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useTopPeople } from '@/hooks/usePeople';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { VoiceActorCard } from '@/components/ui/VoiceActorCard';
 import { Link } from 'react-router-dom';
-import { Mic2 } from 'lucide-react';
+import { AlertCircle, Mic2, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { dedupeByMalId } from '@/utils/dedupeByMalId';
+
+function PersonProfileLink({ person, children }) {
+  return <Link to={`/person/${person.mal_id}`}>{children}</Link>;
+}
 
 export function VoiceActors() {
   const { 
@@ -13,7 +18,8 @@ export function VoiceActors() {
     hasNextPage, 
     isFetchingNextPage, 
     isLoading,
-    error
+    error,
+    refetch,
   } = useTopPeople();
   
   usePageTitle('Top Dubladores');
@@ -24,23 +30,20 @@ export function VoiceActors() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage && !error) {
           fetchNextPage();
         }
       },
       { threshold: 0.1 } // Trigger when 10% of the sentinel is visible
     );
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
+    const loadMoreElement = loadMoreRef.current;
+    if (loadMoreElement) observer.observe(loadMoreElement);
 
     return () => {
-      if (loadMoreRef.current) {
-        observer.unobserve(loadMoreRef.current);
-      }
+      if (loadMoreElement) observer.unobserve(loadMoreElement);
     };
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage, error]);
 
   // Skeleton Loading Component
   const SkeletonCard = () => (
@@ -51,7 +54,10 @@ export function VoiceActors() {
     </div>
   );
 
-  const people = data?.pages.flatMap(page => page.data) || [];
+  const people = useMemo(() => {
+    const allPeople = data?.pages.flatMap((page) => page.data || []) || [];
+    return dedupeByMalId(allPeople);
+  }, [data]);
 
   return (
     <div className="min-h-screen p-6 lg:p-10 space-y-8 pb-20">
@@ -68,6 +74,19 @@ export function VoiceActors() {
         </div>
       </div>
 
+      {error && (
+        <div role="alert" className="flex flex-col items-center gap-3 rounded-2xl border border-red-500/25 bg-red-500/10 p-6 text-center">
+          <AlertCircle className="h-8 w-8 text-red-400" />
+          <div>
+            <h2 className="font-bold text-text-primary">Nao foi possivel carregar as pessoas</h2>
+            <p className="mt-1 text-sm text-text-secondary">A API pode estar instavel. Tente novamente em alguns segundos.</p>
+          </div>
+          <button type="button" onClick={() => refetch()} className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white">
+            <RefreshCw className="h-4 w-4" /> Tentar novamente
+          </button>
+        </div>
+      )}
+
       {/* Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {people.map((person, index) => (
@@ -77,9 +96,9 @@ export function VoiceActors() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: (index % 20) * 0.05 }}
           >
-            <Link to={`/person/${person.mal_id}`}>
-                <VoiceActorCard person={person} index={index} />
-            </Link>
+            <PersonProfileLink person={person}>
+              <VoiceActorCard person={person} index={index} />
+            </PersonProfileLink>
           </motion.div>
         ))}
         

@@ -10,6 +10,7 @@ import {
 import { doc, setDoc, getDoc, deleteDoc, serverTimestamp, collection, getDocs, query, where, writeBatch } from 'firebase/firestore';
 
 const AuthContext = createContext();
+const FOLLOW_RELATION_BATCH_SIZE = 5;
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
@@ -57,6 +58,24 @@ export function AuthProvider({ children }) {
 
     // ── Helper: limpa todos os dados do usuário no Firestore ──────────────────
     const cleanupUserData = async (uid) => {
+        // Each pair uses getAfter() in Firestore Rules, so keep batches below rule access limits.
+        const [followingSnap, followersSnap] = await Promise.all([
+            getDocs(collection(db, 'users', uid, 'following')),
+            getDocs(collection(db, 'users', uid, 'followers')),
+        ]);
+        const followRelations = [
+            ...followingSnap.docs.map((relation) => ({ followerUid: uid, targetUid: relation.id })),
+            ...followersSnap.docs.map((relation) => ({ followerUid: relation.id, targetUid: uid })),
+        ];
+
+        for (let index = 0; index < followRelations.length; index += FOLLOW_RELATION_BATCH_SIZE) {
+            const batch = writeBatch(db);
+            followRelations.slice(index, index + FOLLOW_RELATION_BATCH_SIZE).forEach(({ followerUid, targetUid }) => {
+                batch.delete(doc(db, 'users', followerUid, 'following', targetUid));
+                batch.delete(doc(db, 'users', targetUid, 'followers', followerUid));
+            });
+            await batch.commit();
+        }
         // 1. Limpar sub-coleções e dados órfãos
         const subCollections = ['library', 'favorite_characters', 'followed_studios', 'notifications'];
         for (const subcol of subCollections) {
@@ -139,6 +158,8 @@ export function AuthProvider({ children }) {
     );
 }
 
+// The hook shares the private context with its provider in this module.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
     return useContext(AuthContext);
 };

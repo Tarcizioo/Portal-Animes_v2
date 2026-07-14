@@ -35,7 +35,7 @@ export function CommentsSection({ animeId, animeTitle = '' }) {
             try {
                 await deleteComment(commentId);
                 toast.success("Comentário removido.");
-            } catch (error) {
+            } catch {
                 toast.error("Erro ao remover comentário.");
             }
         }

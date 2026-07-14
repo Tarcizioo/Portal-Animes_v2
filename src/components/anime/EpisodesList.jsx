@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
 import { ChevronDown, CheckCircle } from 'lucide-react';
 
-export function EpisodesList({ episodes, currentEp, totalEp, onUpdateProgress }) {
+export function EpisodesList({ episodes, currentEp, onUpdateProgress }) {
     const [showAll, setShowAll] = useState(false);
     const displayedEpisodes = showAll ? episodes : episodes.slice(0, 5);
 

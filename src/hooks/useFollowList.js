@@ -1,38 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { collection, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { db } from '@/services/firebase';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
-/**
- * Fetches a paginated, real-time list of followers or following for a given user.
- *
- * @param {string} uid        - The user whose list to fetch
- * @param {'followers'|'following'} type
- * @param {number} maxItems   - Max items to fetch (default 50)
- */
 export function useFollowList(uid, type = 'followers', maxItems = 50) {
-    const [list, setList]       = useState([]);
-    const [loading, setLoading] = useState(true);
+    const subscriptionKey = uid && type ? `${uid}:${type}:${maxItems}` : null;
+    const [state, setState] = useState({ key: null, list: [], loading: true });
 
     useEffect(() => {
-        if (!uid || !type) {
-            setList([]);
-            setLoading(false);
-            return;
-        }
+        if (!subscriptionKey) return undefined;
 
-        const ref = collection(db, 'users', uid, type);
-        const q   = query(ref, orderBy('followedAt', 'desc'), limit(maxItems));
+        const listRef = collection(db, 'users', uid, type);
+        const listQuery = query(listRef, orderBy('followedAt', 'desc'), limit(maxItems));
 
-        const unsub = onSnapshot(q, (snap) => {
-            setList(snap.docs.map(d => ({ uid: d.id, ...d.data() })));
-            setLoading(false);
-        }, (err) => {
-            console.error(`[useFollowList] ${type} error:`, err);
-            setLoading(false);
+        return onSnapshot(listQuery, (snapshot) => {
+            setState({
+                key: subscriptionKey,
+                list: snapshot.docs.map((item) => ({ uid: item.id, ...item.data() })),
+                loading: false,
+            });
+        }, (error) => {
+            console.error(`[useFollowList] ${type} error:`, error);
+            setState({ key: subscriptionKey, list: [], loading: false });
         });
+    }, [subscriptionKey, uid, type, maxItems]);
 
-        return () => unsub();
-    }, [uid, type, maxItems]);
-
-    return { list, loading };
+    const isCurrentSubscription = state.key === subscriptionKey;
+    return {
+        list: subscriptionKey && isCurrentSubscription ? state.list : [],
+        loading: Boolean(subscriptionKey) && (!isCurrentSubscription || state.loading),
+    };
 }

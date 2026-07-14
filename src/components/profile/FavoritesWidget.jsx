@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, Plus, GripVertical, User, Pin, Pencil, Check, X, Star, Image as ImageIcon } from 'lucide-react';
@@ -55,7 +55,7 @@ function FavoriteCard({ item, type, isOverlay = false, isEditing = false, dragLi
                 {/* Edit Image Button (Only in Edit Mode) */}
                 {isEditing && onOpenImageModal && (
                     <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenImageModal(item.id); }}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenImageModal(item); }}
                         className="absolute bottom-2 right-2 z-20 p-2 bg-black/60 backdrop-blur-md rounded-lg hover:bg-button-accent transition-colors shadow-lg group-hover:scale-105"
                         title="Mudar Foto do Card"
                     >
@@ -135,28 +135,23 @@ export function FavoritesWidget({
     onSetPreferredView,
     readOnly = false
 }) {
-    const [activeTab, setActiveTab] = useState(preferredView || 'anime');
+    const [selectedTab, setSelectedTab] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
+    const [imageModalState, setImageModalState] = useState({ open: false, item: null });
+    const [orderOverride, setOrderOverride] = useState({ key: null, ids: [] });
 
-    // State para o Modal de Trocar Imagem do Card
-    const [imageModalState, setImageModalState] = useState({ open: false, itemId: null });
-
-    // Sync preference
-    useEffect(() => {
-        if (preferredView) setActiveTab(preferredView);
-    }, [preferredView]);
-
+    const activeTab = selectedTab || preferredView || 'anime';
     const isPinned = preferredView === activeTab;
     const propItems = activeTab === 'anime' ? animeFavorites : characterFavorites;
     const type = activeTab;
-
-    // Local State (Slice to top 10)
-    const [localItems, setLocalItems] = useState(propItems.slice(0, 10));
-
-    // Update local items when props change (and slice again to ensure limits)
-    useEffect(() => {
-        setLocalItems(propItems.slice(0, 10));
-    }, [propItems, activeTab]);
+    const sourceItems = propItems.slice(0, 10);
+    const sourceKey = `${type}:${sourceItems.map((item) => item.id).join('|')}`;
+    const orderedIds = orderOverride.key === sourceKey
+        ? orderOverride.ids
+        : sourceItems.map((item) => item.id);
+    const localItems = orderedIds
+        .map((id) => sourceItems.find((item) => item.id === id))
+        .filter(Boolean);
 
     // Dnd State
     const [activeId, setActiveId] = useState(null);
@@ -171,27 +166,16 @@ export function FavoritesWidget({
         const { active, over } = event;
 
         if (active.id !== over?.id) {
-            setLocalItems((items) => {
-                const oldIndex = items.findIndex((item) => item.id === active.id);
-                const newIndex = items.findIndex((item) => item.id === over.id);
-                const newOrder = arrayMove(items, oldIndex, newIndex);
+            const oldIndex = localItems.findIndex((item) => item.id === active.id);
+            const newIndex = localItems.findIndex((item) => item.id === over.id);
+            const newOrder = arrayMove(localItems, oldIndex, newIndex);
+            const newOrderIds = newOrder.map((item) => item.id);
+            const restOfItems = propItems.slice(10).map((item) => item.id);
+            const fullIds = [...newOrderIds, ...restOfItems];
 
-                // Notify parent
-                const newOrderIds = newOrder.map(item => item.id);
-
-                // IMPORTANT: We must merge this "reordered top 10" with the "rest of the favorites" 
-                // to preserve the full list order, otherwise we lose data.
-                const restOfItems = propItems.slice(10).map(i => i.id);
-                const fullIds = [...newOrderIds, ...restOfItems];
-
-                if (activeTab === 'anime') {
-                    onReorderAnimes(fullIds);
-                } else {
-                    onReorderCharacters(fullIds);
-                }
-
-                return newOrder;
-            });
+            setOrderOverride({ key: sourceKey, ids: newOrderIds });
+            if (activeTab === 'anime') onReorderAnimes(fullIds);
+            else onReorderCharacters(fullIds);
         }
         setActiveId(null);
     };
@@ -225,7 +209,7 @@ export function FavoritesWidget({
                     {/* Modern Tab Switcher */}
                     <ViewToggle
                         value={activeTab}
-                        onChange={(val) => { setActiveTab(val); setIsEditing(false); }}
+                        onChange={(val) => { setSelectedTab(val); setIsEditing(false); }}
                         options={[
                             { value: 'anime', label: 'Animes', icon: Heart },
                             { value: 'character', label: 'Personagens', icon: User },
@@ -302,7 +286,7 @@ export function FavoritesWidget({
                                     item={item}
                                     type={type}
                                     isEditing={isEditing}
-                                    onOpenImageModal={(id) => setImageModalState({ open: true, itemId: id })}
+                                    onOpenImageModal={(item) => setImageModalState({ open: true, item })}
                                 />
                             ))}
                         </SortableContext>
@@ -337,14 +321,14 @@ export function FavoritesWidget({
             {/* Modal para Trocar Imagem do Post/Card */}
             <ImageSelectModal
                 isOpen={imageModalState.open}
-                onClose={() => setImageModalState({ open: false, itemId: null })}
-                itemId={imageModalState.itemId}
+                onClose={() => setImageModalState({ open: false, item: null })}
+                item={imageModalState.item}
                 type={type}
                 onSelect={async (newUrl) => {
                     if (onUpdateImage) {
-                        await onUpdateImage(type, imageModalState.itemId, newUrl);
+                        await onUpdateImage(type, imageModalState.item?.id, newUrl);
                     }
-                    setImageModalState({ open: false, itemId: null });
+                    setImageModalState({ open: false, item: null });
                 }}
             />
         </div>

@@ -1,43 +1,38 @@
 import { useState } from 'react';
+
 import { motion } from 'framer-motion';
 import { UserPlus, UserCheck, UserMinus, Loader2 } from 'lucide-react';
 import { useFollow } from '@/hooks/useFollow';
 import { useAuth } from '@/context/AuthContext';
-import { notifyNewFollower } from '@/services/notificationService';
-import { useUserProfile } from '@/hooks/useUserProfile';
+import { useToast } from '@/context/ToastContext';
 
-/**
- * FollowButton
- * Rendered on a public profile. Hidden on your own profile or when logged out.
- *
- * @param {string}  targetUid      - UID of the profile being viewed
- * @param {object}  targetProfile  - Public profile data of the target user
- */
 export function FollowButton({ targetUid, targetProfile }) {
     const { user } = useAuth();
-    const { profile: myProfile } = useUserProfile();
+    const { toast } = useToast();
     const { isFollowing, loading, mutating, follow, unfollow } = useFollow(targetUid);
     const [hovered, setHovered] = useState(false);
 
-    // Don't render for own profile or logged-out users
-    if (!user || !targetUid || user.uid === targetUid) return null;
-    if (loading) return null;
+    if (!user || !targetUid || user.uid === targetUid || loading) return null;
 
     const handleClick = async () => {
         if (mutating) return;
-        if (isFollowing) {
-            await unfollow();
-        } else {
-            await follow(targetProfile);
-            // Fire-and-forget notification
-            notifyNewFollower(targetUid, myProfile, user.uid).catch(() => {});
+
+        try {
+            if (isFollowing) {
+                await unfollow();
+                toast.info('Você deixou de seguir este perfil.', 'Seguindo');
+            } else {
+                await follow(targetProfile);
+                toast.success('Agora você acompanha este perfil.', 'Seguindo');
+            }
+        } catch {
+            toast.error('Não foi possível atualizar o seguimento. Tente novamente.', 'Seguidores');
         }
     };
 
     const label = isFollowing
         ? (hovered ? 'Deixar de seguir' : 'Seguindo')
         : '+ Seguir';
-
     const Icon = mutating
         ? Loader2
         : isFollowing

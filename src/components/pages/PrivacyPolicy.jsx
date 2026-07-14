@@ -38,7 +38,7 @@ export function PrivacyPolicy() {
                 <section>
                     <h2 className="text-xl font-bold text-text-primary mb-3">4. Conteúdo Externo</h2>
                     <p>
-                        Este site utiliza a API pública do Jikan (MyAnimeList) para exibir informações. Imagens e metadados são de propriedade de seus respectivos autores e estúdios.
+                        Este site utiliza a API pública da AniList para exibir informações. Imagens e metadados pertencem aos respectivos autores, estúdios e provedores.
                         Não hospedamos vídeos ou conteudos piratas.
                     </p>
                 </section>

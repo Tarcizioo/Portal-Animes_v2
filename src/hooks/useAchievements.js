@@ -1,76 +1,66 @@
-import { useMemo, useEffect, useState } from 'react';
-import { BADGES } from '@/constants/badges';
+import { useEffect, useMemo } from 'react';
+import { BADGES, getAchievementStats, getBadgeProgress } from '@/constants/badges';
 import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
-import { useUserProfile } from '@/hooks/useUserProfile';
+import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 
+function getClosestBadge(lockedBadges, stats) {
+  return [...lockedBadges].sort((first, second) => {
+    const firstProgress = getBadgeProgress(first, stats);
+    const secondProgress = getBadgeProgress(second, stats);
+    return secondProgress.percentage - firstProgress.percentage
+      || (firstProgress.target - firstProgress.current) - (secondProgress.target - secondProgress.current);
+  })[0] || null;
+}
+
 export function useAchievements() {
-    const { library } = useAnimeLibrary();
-    const { profile } = useUserProfile();
-    const { toast } = useToast();
+  const { library, loading } = useAnimeLibrary();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const stats = useMemo(() => getAchievementStats(library), [library]);
 
-    // Calcular estatísticas derivadas da biblioteca local (mais confiável/atualizado que o perfil)
-    const stats = useMemo(() => {
-        if (!library) return { totalAnimes: 0, completedAnimes: 0, episodesWatched: 0 };
+  const { unlockedBadges, lockedBadges } = useMemo(() => {
+    const unlocked = [];
+    const locked = [];
+    BADGES.forEach((badge) => (badge.requirement(stats) ? unlocked.push(badge) : locked.push(badge)));
+    return { unlockedBadges: unlocked, lockedBadges: locked };
+  }, [stats]);
 
-        const totalAnimes = library.length;
-        const completedAnimes = library.filter(a => a.status === 'completed').length;
-        // Calcular episódios assistidos somando o progresso atual de cada anime
-        const episodesWatched = library.reduce((acc, curr) => acc + (curr.currentEp || 0), 0);
+  useEffect(() => {
+    if (!user?.uid || loading) return;
+    const storageKey = `known_badges:${user.uid}`;
+    const unlockedIds = unlockedBadges.map((badge) => badge.id);
+    const saved = localStorage.getItem(storageKey);
 
-        return {
-            totalAnimes,
-            completedAnimes,
-            episodesWatched
-        };
-    }, [library]);
+    if (saved === null) {
+      localStorage.setItem(storageKey, JSON.stringify(unlockedIds));
+      return;
+    }
 
-    // Calcular badges desbloqueadas (lógica pura, sem ler localStorage)
-    const { unlockedBadges, lockedBadges } = useMemo(() => {
-        const unlocked = [];
-        const locked = [];
+    let knownBadges = [];
+    try {
+      knownBadges = JSON.parse(saved);
+    } catch {
+      knownBadges = [];
+    }
 
-        BADGES.forEach(badge => {
-            const isUnlocked = badge.requirement(stats, library);
-            if (isUnlocked) {
-                unlocked.push(badge);
-            } else {
-                locked.push(badge);
-            }
-        });
+    const newBadges = unlockedBadges.filter((badge) => !knownBadges.includes(badge.id));
+    newBadges.forEach((badge) => toast.success(badge.name, 'Nova conquista desbloqueada'));
+    if (newBadges.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify([...new Set([...knownBadges, ...unlockedIds])]));
+    }
+  }, [loading, toast, unlockedBadges, user?.uid]);
 
-        return { unlockedBadges: unlocked, lockedBadges: locked };
-    }, [stats, library]);
+  const nextBadge = useMemo(() => getClosestBadge(lockedBadges, stats), [lockedBadges, stats]);
 
-    // Efeito para checar novos unlocks e disparar toasts
-    useEffect(() => {
-        if (unlockedBadges.length > 0) {
-            const knownBadges = JSON.parse(localStorage.getItem('known_badges') || '[]');
-            let hasNewUpdates = false;
-
-            unlockedBadges.forEach(badge => {
-                if (!knownBadges.includes(badge.id)) {
-                    toast.success(`Conquista Desbloqueada: ${badge.name}!`, "Parabéns!");
-                    knownBadges.push(badge.id);
-                    hasNewUpdates = true;
-                }
-            });
-
-            if (hasNewUpdates) {
-                localStorage.setItem('known_badges', JSON.stringify(knownBadges));
-            }
-        }
-    }, [unlockedBadges, toast]);
-
-    // Calcular próxima badge (a mais próxima de ser alcançada seria ideal, mas por enquanto pegamos a primeira locked simples)
-    const nextBadge = lockedBadges.length > 0 ? lockedBadges[0] : null;
-
-    return {
-        stats,
-        unlockedBadges,
-        lockedBadges,
-        nextBadge,
-        totalBadges: BADGES.length,
-        progressPercentage: Math.round((unlockedBadges.length / BADGES.length) * 100)
-    };
+  return {
+    stats,
+    loading,
+    unlockedBadges,
+    lockedBadges,
+    nextBadge,
+    nextBadgeProgress: nextBadge ? getBadgeProgress(nextBadge, stats) : null,
+    totalBadges: BADGES.length,
+    progressPercentage: Math.round((unlockedBadges.length / BADGES.length) * 100),
+  };
 }

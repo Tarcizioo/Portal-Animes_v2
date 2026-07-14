@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 
-export function useAnimeStats(library) {
-    const defaultStats = {
+const DEFAULT_STATS = {
         overview: {
             totalAnimes: 0,
             totalEpisodes: 0,
@@ -17,8 +16,9 @@ export function useAnimeStats(library) {
         topRated: []
     };
 
+export function useAnimeStats(library) {
     const stats = useMemo(() => {
-        if (!library || library.length === 0) return defaultStats;
+        if (!library || library.length === 0) return DEFAULT_STATS;
 
         const totalAnimes = library.length;
         
@@ -62,7 +62,6 @@ export function useAnimeStats(library) {
 
         library.forEach(anime => {
             const currentEp = parseInt(anime.currentEp) || 0;
-            const totalEp = parseInt(anime.episodes) || 0;
             const duration = parseInt(anime.duration) || 24; // Default to 24min if unknown
             const score = Number(anime.score) || 0;
             const status = anime.status || 'plan_to_watch';

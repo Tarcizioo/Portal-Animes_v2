@@ -8,12 +8,13 @@ const PING_INTERVAL_MS = 5 * 60 * 1000;
 
 export function usePresence() {
     const { user } = useAuth();
+    const userId = user?.uid || null;
     const isOnlineRef = useRef(false);
 
     useEffect(() => {
-        if (!user) return;
+        if (!userId) return undefined;
 
-        const userRef = doc(db, 'users', user.uid);
+        const userRef = doc(db, 'users', userId);
 
         const setOnlineStatus = async (isOnline) => {
             try {
@@ -81,5 +82,5 @@ export function usePresence() {
             window.removeEventListener('beforeunload', handleBeforeUnload);
             setOnlineStatus(false);
         };
-    }, [user?.uid]); // Depend only on user ID to avoid re-triggering constantly
+    }, [userId]);
 }

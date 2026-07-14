@@ -1,131 +1,100 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import clsx from 'clsx';
+import { ChevronRight, Lock, Settings2, Sparkles, Trophy } from 'lucide-react';
+import { BADGES, getAchievementStats, getBadgeProgress } from '@/constants/badges';
 import { useAchievements } from '@/hooks/useAchievements';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { Lock, Edit2, PlusCircle, Trophy } from 'lucide-react';
 import { BadgesModal } from './BadgesModal';
-import clsx from 'clsx';
-import { BADGES } from '@/constants/badges';
+
+function findClosestBadge(lockedBadges, stats) {
+  return [...lockedBadges].sort((first, second) =>
+    getBadgeProgress(second, stats).percentage - getBadgeProgress(first, stats).percentage,
+  )[0] || null;
+}
 
 export function AchievementBadges({ readOnly = false, publicLibrary = null, publicProfile = null }) {
-  const { unlockedBadges: localUnlocked } = useAchievements();
+  const localAchievements = useAchievements();
   const { profile: localProfile } = useUserProfile();
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   const profile = readOnly ? publicProfile : localProfile;
 
-  const unlockedBadges = useMemo(() => {
-    if (!readOnly) return localUnlocked || [];
-    if (!publicLibrary) return [];
-
-    const stats = {
-      totalAnimes: publicLibrary.length,
-      completedAnimes: publicLibrary.filter(a => a.status === 'completed').length,
-      episodesWatched: publicLibrary.reduce((acc, curr) => acc + (curr.currentEp || 0), 0)
+  const publicAchievementData = useMemo(() => {
+    const stats = getAchievementStats(publicLibrary || []);
+    const unlockedBadges = BADGES.filter((badge) => badge.requirement(stats));
+    const lockedBadges = BADGES.filter((badge) => !badge.requirement(stats));
+    return {
+      stats,
+      unlockedBadges,
+      nextBadge: findClosestBadge(lockedBadges, stats),
     };
+  }, [publicLibrary]);
 
-    return BADGES.filter(badge => badge.requirement(stats, publicLibrary));
-  }, [readOnly, localUnlocked, publicLibrary]);
-
-  // Calcular progresso total
-  const totalUnlocked = unlockedBadges.length;
-  const totalBadges = BADGES.length;
-  const progressPercentage = Math.round((totalUnlocked / totalBadges) * 100);
-
-  // Determinar quais badges exibir (Featured ou Default 3 unlocked)
-  let displayBadges = [];
-
-  if (profile?.featuredBadges && profile.featuredBadges.length > 0) {
-    // Mapear IDs salvos para objetos badge completos
-    displayBadges = profile.featuredBadges
-      .map(id => BADGES.find(b => b.id === id))
-      .filter(Boolean); // Remover nulls se badge não existir mais
-  } else {
-    // Default: 3 primeiras unlocked
-    displayBadges = unlockedBadges.slice(0, 3);
-  }
+  const stats = readOnly ? publicAchievementData.stats : localAchievements.stats;
+  const unlockedBadges = readOnly ? publicAchievementData.unlockedBadges : localAchievements.unlockedBadges;
+  const nextBadge = readOnly ? publicAchievementData.nextBadge : localAchievements.nextBadge;
+  const unlockedIds = new Set(unlockedBadges.map((badge) => badge.id));
+  const savedFeatured = Array.isArray(profile?.featuredBadges) ? profile.featuredBadges : null;
+  const featuredBadges = (savedFeatured === null ? unlockedBadges.slice(0, 3).map((badge) => badge.id) : savedFeatured)
+    .map((id) => BADGES.find((badge) => badge.id === id))
+    .filter((badge) => badge && unlockedIds.has(badge.id))
+    .slice(0, 3);
+  const progressPercentage = Math.round((unlockedBadges.length / BADGES.length) * 100);
+  const nextProgress = nextBadge ? getBadgeProgress(nextBadge, stats) : null;
 
   return (
-    <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl md:rounded-2xl p-4 md:p-6 space-y-4 md:space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-4 h-4 text-button-accent" />
-          <div>
-            <h3 className="font-bold text-[var(--text-primary)] text-sm md:text-lg leading-none">Conquistas</h3>
-            <span className="text-[10px] md:text-xs text-[var(--text-secondary)] font-medium">{totalUnlocked} de {totalBadges} desbloqueadas</span>
+    <div className="overflow-hidden rounded-2xl border border-border-color bg-bg-secondary shadow-lg shadow-black/5">
+      <div className="relative overflow-hidden border-b border-border-color bg-[radial-gradient(circle_at_85%_10%,rgba(245,158,11,0.18),transparent_36%),linear-gradient(135deg,rgba(99,102,241,0.11),transparent)] p-5 md:p-6">
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-400/10 text-amber-300 ring-1 ring-amber-400/20"><Trophy className="h-5 w-5" /></span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Jornada pessoal</p>
+              <h3 className="text-lg font-black text-text-primary">Conquistas</h3>
+              <p className="text-xs text-text-secondary">{unlockedBadges.length} de {BADGES.length} desbloqueadas</p>
+            </div>
           </div>
+          {!readOnly && (
+            <button type="button" onClick={() => setIsModalOpen(true)} aria-label="Gerenciar conquistas" className="shrink-0 rounded-xl border border-border-color bg-bg-primary/40 p-2.5 text-text-secondary transition-colors hover:border-button-accent/50 hover:text-text-primary"><Settings2 className="h-4 w-4" /></button>
+          )}
         </div>
-
-        {!readOnly && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--bg-primary)] hover:bg-primary/20 hover:text-primary text-[var(--text-secondary)] transition-all group border border-transparent hover:border-primary/30"
-            title="Gerenciar Conquistas"
-          >
-            <span className="text-xs font-bold uppercase tracking-wider">Editar</span>
-            <Edit2 className="w-4 h-4" />
-          </button>
-        )}
+        <div className="relative mt-5">
+          <div className="mb-2 flex justify-between text-[10px] font-black uppercase tracking-wider text-text-secondary"><span>Progresso geral</span><span>{progressPercentage}%</span></div>
+          <div className="h-2 overflow-hidden rounded-full bg-bg-primary/70"><div className="h-full rounded-full bg-gradient-to-r from-button-accent via-cyan-400 to-amber-300 transition-[width] duration-700" style={{ width: `${progressPercentage}%` }} /></div>
+        </div>
       </div>
 
-      {/* Barra de Progresso Total (Compacta) */}
-      <div className="w-full bg-[var(--bg-primary)]/50 rounded-full h-1.5 overflow-hidden">
-        <div
-          className="bg-gradient-to-r from-primary to-purple-500 h-full rounded-full transition-all duration-1000"
-          style={{ width: `${progressPercentage}%` }}
-        ></div>
-      </div>
-
-      {/* Grid de Badges (Visualização Pinned - Max 3) */}
-      <div className="grid grid-cols-3 gap-2 md:gap-3">
-        {displayBadges.length > 0 ? (
-          displayBadges.map((badge) => {
-            const Icon = badge.icon;
-            return (
-              <div
-                key={badge.id}
-                className={clsx(
-                  "relative group flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-300 bg-black/20 hover:bg-[var(--bg-primary)]/10",
-                  badge.border
-                )}
-              >
-                <div className={clsx(
-                  "w-10 h-10 rounded-full flex items-center justify-center mb-2",
-                  badge.bg
-                )}>
-                  <Icon className={clsx("w-5 h-5", badge.color)} />
+      <div className="p-5 md:p-6">
+        <div className="mb-3 flex items-center justify-between"><p className="text-xs font-black uppercase tracking-[0.16em] text-text-secondary">Em destaque</p><span className="text-[10px] text-text-secondary">até 3 no perfil</span></div>
+        {featuredBadges.length > 0 ? (
+          <div className="grid gap-2">
+            {featuredBadges.map((badge) => {
+              const Icon = badge.icon;
+              return (
+                <div key={badge.id} className={clsx('group flex items-center gap-3 rounded-2xl border p-3 transition-transform hover:-translate-y-0.5', badge.bg, badge.border)}>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/15"><Icon className={clsx('h-4 w-4', badge.color)} /></span>
+                  <div className="min-w-0 flex-1">
+                    <span className={clsx('block text-[9px] font-black uppercase tracking-wider', badge.color)}>{badge.rarity}</span>
+                    <p className="mt-0.5 truncate text-sm font-black text-text-primary">{badge.name}</p>
+                    <p className="mt-0.5 truncate text-[10px] text-text-secondary">{badge.description}</p>
+                  </div>
                 </div>
-
-                <h4 className="text-[10px] font-bold text-center text-[var(--text-primary)] leading-tight line-clamp-1">
-                  {badge.name}
-                </h4>
-              </div>
-            );
-          })
-        ) : (
-          // Estado Vazio (Sem conquistas ainda)
-          <div className="col-span-3 py-4 text-center text-sm text-[var(--text-secondary)] italic bg-black/20 rounded-xl border border-[var(--border-color)] border-dashed">
-            Ainda sem conquistas desbloqueadas.
+              );
+            })}
           </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-border-color bg-bg-primary/30 p-5 text-center"><Lock className="mx-auto h-5 w-5 text-text-secondary" /><p className="mt-2 text-sm font-bold text-text-primary">Sua vitrine ainda está vazia</p><p className="mt-1 text-xs text-text-secondary">Desbloqueie uma conquista para começar.</p></div>
         )}
 
-        {/* Slot "Adicionar" se tiver menos de 3 (only in edit mode) */}
-        {!readOnly && displayBadges.length < 3 && unlockedBadges.length > displayBadges.length && (
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex flex-col items-center justify-center p-3 rounded-xl border border-[var(--border-color)] border-dashed hover:border-primary/50 hover:bg-primary/5 transition-all group"
-          >
-            <PlusCircle className="w-8 h-8 text-[var(--text-secondary)] group-hover:text-primary mb-1 transition-colors" />
-            <span className="text-[10px] font-medium text-[var(--text-secondary)] group-hover:text-primary">Fixar</span>
+        {nextBadge && nextProgress && (
+          <button type="button" onClick={() => !readOnly && setIsModalOpen(true)} disabled={readOnly} className="mt-4 flex w-full items-center gap-3 rounded-2xl border border-border-color bg-bg-tertiary/35 p-3 text-left transition-colors enabled:hover:border-button-accent/40">
+            <span className={clsx('flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', nextBadge.bg)}><Sparkles className={clsx('h-4 w-4', nextBadge.color)} /></span>
+            <div className="min-w-0 flex-1"><div className="flex justify-between gap-3"><p className="truncate text-xs font-black text-text-primary">Próxima: {nextBadge.name}</p><span className="shrink-0 text-[10px] font-bold text-text-secondary">{nextProgress.value}/{nextProgress.target}</span></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-primary"><div className="h-full rounded-full bg-button-accent" style={{ width: `${nextProgress.percentage}%` }} /></div></div>
+            {!readOnly && <ChevronRight className="h-4 w-4 text-text-secondary" />}
           </button>
         )}
       </div>
 
-      {!readOnly && (
-        <BadgesModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-        />
-      )}
+      {!readOnly && <BadgesModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />}
     </div>
   );
 }

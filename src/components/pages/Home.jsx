@@ -1,4 +1,4 @@
-import { BarChart2, Calendar, Zap, Heart, Theater, Skull, Smile, Wand2, Rocket, Trophy, Sparkles } from 'lucide-react';
+import { BarChart2, Calendar, Zap, Heart, Theater, Skull, Smile, Wand2, Rocket, Trophy, Sparkles, RefreshCw, WifiOff } from 'lucide-react';
 
 import { Hero } from "@/components/home/Hero";
 import { AnimeCarousel } from '@/components/ui/AnimeCarousel';
@@ -23,20 +23,89 @@ const genreCategories = [
   { id: 'sports', title: 'Esportes & Competição', icon: Trophy, genreId: 30 },
 ];
 
+const genreNamesById = {
+  1: 'Action',
+  4: 'Comedy',
+  8: 'Drama',
+  10: 'Fantasy',
+  14: 'Horror',
+  22: 'Romance',
+  24: 'Sci-Fi',
+  30: 'Sports',
+};
+
+function uniqueAnimes(animes) {
+  return Array.from(new Map((animes || []).filter((anime) => anime?.id).map((anime) => [anime.id, anime])).values());
+}
+
+function buildGenreCarousels(animes, genreRows = {}) {
+  const directRows = {
+    horror: genreRows.horror,
+    scifi: genreRows.scifi,
+    sports: genreRows.sports,
+  };
+
+  return genreCategories.map((category) => {
+    const fallback = animes.filter((anime) => (
+      anime.genreIds?.includes(category.genreId)
+      || anime.genres?.includes(genreNamesById[category.genreId])
+    ));
+    const direct = directRows[category.id] || [];
+
+    return {
+      ...category,
+      animes: uniqueAnimes(direct.length ? [...direct, ...fallback] : fallback).slice(0, 18),
+    };
+  });
+}
 export function Home() {
   const {
     featuredAnimes,
-    heroAnime,
     popularAnimes,
     seasonalAnimes,
-    loading
+    genreRows,
+    loading,
+    error,
+    isRefreshing,
+    refetch,
   } = useHomeContent();
 
   const { user } = useAuth();
   const { library } = useAnimeLibrary();
-  const { data: recommendations } = useRecommendations(library);
+  const { data: recommendations } = useRecommendations(library, { enabled: !loading });
+
+  const homeAnimePool = [...popularAnimes, ...seasonalAnimes].filter((anime, index, allAnimes) =>
+    allAnimes.findIndex((item) => item.id === anime.id) === index
+  );
+  const genreCarousels = buildGenreCarousels(homeAnimePool, genreRows);
+  const hasHomeContent = featuredAnimes.length > 0 || popularAnimes.length > 0 || seasonalAnimes.length > 0;
 
   usePageTitle('Início');
+
+  if (!loading && error && !hasHomeContent) {
+    return (
+      <div className="p-6 lg:p-10">
+        <section className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center rounded-3xl border border-border-color bg-bg-secondary/70 px-6 text-center shadow-xl">
+          <div className="mb-5 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-primary">
+            <WifiOff className="h-8 w-8" />
+          </div>
+          <h1 className="text-2xl font-black text-text-primary">Os destaques estao indisponiveis</h1>
+          <p className="mt-3 max-w-md text-sm leading-relaxed text-text-secondary">
+            A fonte de animes pode estar instavel ou em pausa. Sua biblioteca continua disponivel enquanto tentamos carregar novamente.
+          </p>
+          <button
+            type="button"
+            onClick={refetch}
+            disabled={isRefreshing}
+            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-white shadow-lg shadow-primary/20 transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            {isRefreshing ? 'Tentando novamente...' : 'Tentar novamente'}
+          </button>
+        </section>
+      </div>
+    );
+  }
 
   return (
 
@@ -91,13 +160,13 @@ export function Home() {
           />
 
           {/* --- CAROUSEIS (Lazy Loaded) --- */}
-          {genreCategories.map((category) => (
+          {genreCarousels.map((category) => (
             <LazyAnimeCarousel
               key={category.id}
               id={category.id}
               title={category.title}
               icon={category.icon}
-              genreId={category.genreId}
+              animes={category.animes}
             />
           ))}
         </>

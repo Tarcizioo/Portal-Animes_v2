@@ -1,26 +1,58 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Info, Plus, Star, PlayCircle, TrendingUp, Calendar, Heart, Award } from 'lucide-react';
 import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ResponsiveImage } from '@/components/ui/ResponsiveImage';
+import { useAppPreferences } from '@/hooks/useAppPreferences';
 
 const MotionLink = motion(Link);
+
+function HeroBackground({ source, fallbackSrc, isInitialRender }) {
+  const [activeSource, setActiveSource] = useState(source);
+  const [hasFailed, setHasFailed] = useState(false);
+
+  if (!activeSource || hasFailed) return null;
+
+  return (
+    <motion.img
+      initial={isInitialRender ? { scale: 1.05, filter: "blur(0px)" } : { scale: 1.1, filter: "blur(10px)" }}
+      animate={{ scale: 1.05, filter: "blur(0px)" }}
+      transition={{ duration: 8, ease: "linear" }}
+      src={activeSource}
+      alt=""
+      width="1920"
+      height="1080"
+      fetchPriority={isInitialRender ? "high" : "auto"}
+      loading={isInitialRender ? "eager" : "lazy"}
+      decoding="async"
+      onError={() => {
+        if (fallbackSrc && activeSource !== fallbackSrc) {
+          setActiveSource(fallbackSrc);
+          return;
+        }
+
+        setHasFailed(true);
+      }}
+      className="w-full h-full object-cover opacity-60 md:opacity-80 will-change-transform"
+    />
+  );
+}
 
 export function Hero({ animes = [] }) {
   const { library, addToLibrary } = useAnimeLibrary();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { preferences } = useAppPreferences();
   const [currentIndex, setCurrentIndex] = useState(0);
-  
-  // Optimization: Track first render to skip initial fade-in for LCP
-  const isFirstRender = useRef(true);
+  const [isInitialRender, setIsInitialRender] = useState(true);
 
   useEffect(() => {
     // Small timeout to ensure the first paint happens without animation, then enable future animations
     const timer = setTimeout(() => {
-      isFirstRender.current = false;
+      setIsInitialRender(false);
     }, 100);
     return () => clearTimeout(timer);
   }, []);
@@ -28,17 +60,19 @@ export function Hero({ animes = [] }) {
   // Se não houver array ou estiver vazio, previne erro
   const safeAnimes = Array.isArray(animes) ? animes : [];
   const anime = safeAnimes[currentIndex];
+  const preferredBackground = anime?.banner || anime?.trailer?.images?.maximum_image_url || anime?.image || anime?.smallImage;
+  const posterSource = anime?.image || anime?.smallImage;
 
   const isInLibrary = library?.some(item => item.id === String(anime?.id || anime?.mal_id));
 
   // Auto-slide effect
   useEffect(() => {
-    if (safeAnimes.length <= 1) return;
+    if (!preferences.autoPlayHero || safeAnimes.length <= 1) return undefined;
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % safeAnimes.length);
     }, 8000);
     return () => clearInterval(timer);
-  }, [safeAnimes.length]);
+  }, [preferences.autoPlayHero, safeAnimes.length]);
 
   const handleAddToList = async () => {
     if (!user) {
@@ -48,7 +82,7 @@ export function Hero({ animes = [] }) {
     try {
       await addToLibrary(anime);
       toast.success("Adicionado à lista com sucesso!");
-    } catch (error) {
+    } catch {
       toast.error("Erro ao adicionar à lista.");
     }
   };
@@ -71,24 +105,17 @@ export function Hero({ animes = [] }) {
       <AnimatePresence mode="wait">
         <motion.div
           key={anime.uniqueId || anime.id} 
-          initial={isFirstRender.current ? { opacity: 1 } : { opacity: 0 }}
+          initial={isInitialRender ? { opacity: 1 } : { opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           className="absolute inset-0 z-0 will-change-[opacity]"
         >
           {/* Background Image */}
           <div className="absolute inset-0 overflow-hidden bg-[#121214]">
-            <motion.img
-              initial={isFirstRender.current ? { scale: 1.05, filter: "blur(0px)" } : { scale: 1.1, filter: "blur(10px)" }}
-              animate={{ scale: 1.05, filter: "blur(0px)" }}
-              transition={{ duration: 8, ease: "linear" }}
-              src={anime.images?.webp?.large_image_url || anime.image}
-              alt={anime.title}
-              width="1920"
-              height="1080"
-              fetchPriority={isFirstRender.current ? "high" : "auto"}
-              loading={isFirstRender.current ? "eager" : "lazy"}
-              className="w-full h-full object-cover opacity-60 md:opacity-80 will-change-transform"
+            <HeroBackground
+              source={preferredBackground}
+              fallbackSrc={posterSource}
+              isInitialRender={isInitialRender}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#121214] via-[#121214]/40 to-transparent" />
             <div className="absolute inset-0 bg-gradient-to-r from-[#121214] via-[#121214]/60 to-transparent" />
@@ -103,17 +130,22 @@ export function Hero({ animes = [] }) {
         <AnimatePresence mode="wait">
           <motion.div
             key={anime.uniqueId || anime.id}
-            initial={isFirstRender.current ? { opacity: 1, x: 0 } : { opacity: 0, x: -50 }}
+            initial={isInitialRender ? { opacity: 1, x: 0 } : { opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.5, delay: isFirstRender.current ? 0 : 0.2 }}
+            transition={{ duration: 0.5, delay: isInitialRender ? 0 : 0.2 }}
             className="hidden md:block flex-shrink-0 w-[300px] aspect-[2/3] rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.6)] border-2 border-white/10 group-hover:border-white/30 transition-all will-change-[opacity,transform]"
           >
-            <img
-              src={anime.smallImage || anime.images?.webp?.image_url || anime.image}
+            <ResponsiveImage
+              src={anime.image || anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || anime.smallImage}
+              fallbackSrc={anime.smallImage || anime.images?.webp?.image_url || anime.images?.jpg?.image_url}
+              srcSet={anime.smallImage && anime.image ? `${anime.smallImage} 280w, ${anime.image} 560w` : undefined}
+              sizes="300px"
               alt={anime.title}
               width="300"
               height="450"
+              loading="eager"
+              fetchPriority={isInitialRender ? "high" : "auto"}
               className="w-full h-full object-cover"
             />
           </motion.div>

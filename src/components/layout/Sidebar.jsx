@@ -9,7 +9,6 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 
 
 export function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebar_collapsed');
     return saved === 'true';
@@ -24,8 +23,6 @@ export function Sidebar() {
   useEffect(() => {
     localStorage.setItem('sidebar_collapsed', isCollapsed);
   }, [isCollapsed]);
-
-  const toggleSidebar = () => setIsOpen(!isOpen);
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -55,7 +52,6 @@ export function Sidebar() {
 
   // Usar APENAS dados do perfil customizado (nunca do Google Auth)
   // Enquanto o profile carrega, mostramos skeleton em vez de dados do Google
-  const profileReady = !profileLoading && profile !== null;
   const displayName = profile?.displayName || user?.displayName || 'Usuário';
   const photoURL = profile?.photoURL || null;
 

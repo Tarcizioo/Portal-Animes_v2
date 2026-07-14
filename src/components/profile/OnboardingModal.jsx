@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { jikanApi } from '@/services/api';
+import { anilistApi } from '@/services/anilistApi';
 import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
 import { Search, ChevronRight, CheckCircle2, Loader2, Sparkles, Tv } from 'lucide-react';
 
@@ -43,8 +43,12 @@ export function OnboardingModal() {
         const delayDebounceData = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const response = await jikanApi.searchAnime(searchQuery, 4);
-                setSearchResults(response.data || []);
+                const response = await anilistApi.searchCatalog(searchQuery, 4, {
+                    anime: true,
+                    characters: false,
+                    people: false,
+                });
+                setSearchResults(response.anime || []);
             } catch (error) {
                 console.error("Erro ao buscar animes na onboarding:", error);
             } finally {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimeCard } from "@/components/ui/AnimeCard";
 import { AnimeListItem } from "@/components/ui/AnimeListItem";
@@ -17,16 +17,21 @@ import {
   Sparkles,
   LayoutGrid,
   List,
+  AlertTriangle,
+  LoaderCircle,
+  RefreshCw,
 } from "lucide-react";
 import clsx from "clsx";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { ViewToggle } from "@/components/ui/ViewToggle";
+import { anilistApi } from "@/services/anilistApi";
 
 const GENRES = [
   { id: 1, name: "Ação" },
   { id: 2, name: "Aventura" },
   { id: 4, name: "Comédia" },
   { id: 8, name: "Drama" },
+  { id: 9, name: "Ecchi" },
   { id: 10, name: "Fantasia" },
   { id: 14, name: "Terror" },
   { id: 22, name: "Romance" },
@@ -42,6 +47,17 @@ const GENRES = [
   { id: 23, name: "Escolar" },
   { id: 42, name: "Seinen" },
   { id: 27, name: "Shounen" },
+  { id: 66, name: "Garotas Mágicas" },
+  { id: 1001, name: "Isekai" },
+  { id: 1002, name: "Histórico" },
+  { id: 1003, name: "Militar" },
+  { id: 1004, name: "Artes Marciais" },
+  { id: 1005, name: "Espacial" },
+];
+
+const VIEW_OPTIONS = [
+  { value: "grid", label: "", ariaLabel: "Visualizacao em grade", icon: LayoutGrid },
+  { value: "list", label: "", ariaLabel: "Visualizacao em lista", icon: List },
 ];
 
 const containerVariants = {
@@ -63,17 +79,55 @@ const itemVariants = {
   },
 };
 
+function CatalogSearch({ value, onChange, isPending, className, inputId }) {
+  return (
+    <div className={clsx("space-y-2", className)}>
+      <label className="sr-only" htmlFor={inputId}>Pesquisar animes</label>
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
+        <input
+          id={inputId}
+          type="search"
+          value={value}
+          placeholder="Pesquisar por titulo..."
+          className="w-full rounded-xl border-2 border-border-color bg-bg-secondary py-3 pl-11 pr-11 text-base text-text-primary transition-all placeholder-text-secondary/60 focus:border-button-accent focus:outline-none focus:ring-4 focus:ring-button-accent/10"
+          onChange={(event) => onChange(event.target.value)}
+        />
+        {isPending ? (
+          <LoaderCircle className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-button-accent" aria-hidden="true" />
+        ) : value ? (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            aria-label="Limpar pesquisa"
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent p-2 text-text-secondary hover:text-text-primary"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+      <span className="sr-only" role="status" aria-live="polite">
+        {isPending ? "Preparando pesquisa" : ""}
+      </span>
+    </div>
+  );
+}
+
 export function Catalog() {
   const {
     animes,
     loading,
+    error,
+    retry,
+    isRetrying,
+    isSearchPending,
     loadMore,
     hasMore,
     filters,
     updateFilter,
     clearFilters,
   } = useCatalog();
-  const sentinelRef = useRef(null);
+
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const navigate = useNavigate();
   const [luckyLoading, setLuckyLoading] = useState(false);
@@ -87,6 +141,23 @@ export function Catalog() {
     localStorage.setItem("anime_catalog_view_mode", viewMode);
   }, [viewMode]);
 
+  useEffect(() => {
+    if (!showMobileFilters) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") setShowMobileFilters(false);
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showMobileFilters]);
+
   usePageTitle("Catálogo");
 
   const handleLuckyParams = async () => {
@@ -95,30 +166,19 @@ export function Catalog() {
       // Delay para feedback visual
       await new Promise((resolve) => setTimeout(resolve, 800));
 
-      const response = await fetch("https://api.jikan.moe/v4/random/anime");
-      if (!response.ok) throw new Error("Erro ao buscar anime aleatório");
+      const data = await anilistApi.getRandomAnime();
+      if (!data?.data?.mal_id) throw new Error("Erro ao buscar anime aleatório");
 
-      const data = await response.json();
-      const randomAnimeId = data.data.mal_id;
+      const randomAnimeId = data?.data?.mal_id;
 
       navigate(`/anime/${randomAnimeId}`);
     } catch (error) {
       console.error("Erro no 'Estou com sorte':", error);
+    } finally {
       setLuckyLoading(false);
     }
   };
 
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) loadMore();
-      },
-      { rootMargin: "200px" },
-    );
-
-    if (sentinelRef.current) observer.observe(sentinelRef.current);
-    return () => observer.disconnect();
-  }, [hasMore, loading, loadMore]);
 
   const handleStatusToggle = (statusValue) => {
     updateFilter("status", filters.status === statusValue ? "" : statusValue);
@@ -145,6 +205,15 @@ export function Catalog() {
     filters.type ||
     filters.producers;
   const skeletonCount = animes.length === 0 ? 12 : 4;
+  const activeFilterCount = [
+    filters.q,
+    filters.status,
+    filters.year,
+    filters.season,
+    filters.type,
+    filters.producers,
+    filters.genres.length > 0,
+  ].filter(Boolean).length;
 
   return (
     <div className="p-6 lg:p-10 max-w-[1600px] mx-auto">
@@ -160,8 +229,11 @@ export function Catalog() {
       <div className="flex flex-col lg:flex-row gap-8">
         {/* --- SIDEBAR DE FILTROS --- */}
         <aside
+          role={showMobileFilters ? "dialog" : undefined}
+          aria-modal={showMobileFilters ? "true" : undefined}
+          aria-label={showMobileFilters ? "Filtros do catalogo" : undefined}
           className={clsx(
-            "lg:w-72 flex-shrink-0 space-y-8",
+            "lg:w-72 flex-shrink-0 space-y-8 pb-24 lg:pb-0",
             showMobileFilters
               ? "fixed inset-0 z-[60] bg-bg-secondary p-6 overflow-y-auto"
               : "hidden lg:block",
@@ -183,24 +255,12 @@ export function Catalog() {
             <h3 className="text-sm font-bold text-text-secondary uppercase tracking-wider flex items-center gap-2">
               <Search className="w-4 h-4 text-button-accent" /> Pesquisar
             </h3>
-            <div className="relative">
-              <input
-                type="text"
-                value={filters.q}
-                placeholder="Ex: Naruto, Bleach..."
-                className="w-full bg-bg-secondary border-2 border-border-color rounded-xl px-4 py-3 text-base text-text-primary focus:outline-none focus:border-button-accent focus:ring-4 focus:ring-button-accent/10 transition-all placeholder-text-secondary/60"
-                onChange={(e) => updateFilter("q", e.target.value)}
-              />
-              {filters.q && (
-                <button
-                  onClick={() => updateFilter("q", "")}
-                  aria-label="Limpar pesquisa"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
+            <CatalogSearch
+              inputId="catalog-search-sidebar"
+              value={filters.q}
+              onChange={(value) => updateFilter("q", value)}
+              isPending={isSearchPending}
+            />
           </div>
 
           {/* Ano e Temporada e Formato */}
@@ -303,8 +363,10 @@ export function Catalog() {
                 { val: "complete", label: "Completo", color: "bg-blue-500" },
                 { val: "upcoming", label: "Em Breve", color: "bg-purple-500" },
               ].map((item) => (
-                <motion.div
+                <Motion.button
+                  type="button"
                   key={item.val}
+                  aria-pressed={filters.status === item.val}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => handleStatusToggle(item.val)}
@@ -321,7 +383,7 @@ export function Catalog() {
                     className={`w-3 h-3 rounded-full ${filters.status === item.val ? item.color : "bg-gray-600"}`}
                   />
                   <span className="font-medium">{item.label}</span>
-                </motion.div>
+                </Motion.button>
               ))}
             </div>
           </div>
@@ -342,8 +404,10 @@ export function Catalog() {
               {GENRES.map((g) => {
                 const isSelected = filters.genres.includes(g.id);
                 return (
-                  <motion.button
+                  <Motion.button
+                    type="button"
                     key={g.id}
+                    aria-pressed={isSelected}
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => handleGenreToggle(g.id)}
@@ -357,14 +421,14 @@ export function Catalog() {
                         `}
                   >
                     {g.name}
-                  </motion.button>
+                  </Motion.button>
                 );
               })}
             </div>
           </div>
 
           {/* Botão Estou com Sorte */}
-          <motion.button
+          <Motion.button
             onClick={handleLuckyParams}
             disabled={luckyLoading}
             whileHover={{ scale: 1.02 }}
@@ -376,33 +440,59 @@ export function Catalog() {
               className={`w-4 h-4 ${luckyLoading ? "animate-spin" : ""}`}
             />
             {luckyLoading ? "Sorteando..." : "Estou com Sorte"}
-          </motion.button>
+          </Motion.button>
 
           {/* Botão Limpar */}
           {hasActiveFilters && (
-            <motion.button
+            <Motion.button
               onClick={clearFilters}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="w-full flex items-center justify-center gap-2 py-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors text-sm font-bold uppercase tracking-wider"
             >
               <Trash2 className="w-4 h-4" /> Limpar Filtros
-            </motion.button>
+            </Motion.button>
           )}
+
+          <div className="sticky -bottom-6 -mx-6 border-t border-border-color bg-bg-secondary/95 p-4 backdrop-blur-xl lg:hidden">
+            <button
+              type="button"
+              onClick={() => setShowMobileFilters(false)}
+              className="w-full rounded-xl bg-button-accent py-3.5 font-bold text-text-on-primary shadow-lg shadow-button-accent/20"
+            >
+              Ver {animes.length > 0 ? `${animes.length} animes` : "resultados"}
+            </button>
+          </div>
         </aside>
 
         {/* --- ÁREA PRINCIPAL --- */}
         <div className="flex-1 min-w-0">
+          <CatalogSearch
+            inputId="catalog-search-mobile"
+            value={filters.q}
+            onChange={(value) => updateFilter("q", value)}
+            isPending={isSearchPending}
+            className="mb-4 lg:hidden"
+          />
+
           {/* Barra Superior - MELHOR CONTRASTE */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 p-5 bg-bg-secondary border border-border-color rounded-2xl shadow-xl shadow-shadow-color/10">
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowMobileFilters(true)}
                 aria-label="Abrir filtros"
-                className="lg:hidden p-2.5 bg-button-accent text-text-on-primary rounded-lg shadow-lg shadow-button-accent/20"
+                className="relative lg:hidden p-2.5 bg-button-accent text-text-on-primary rounded-lg shadow-lg shadow-button-accent/20"
               >
                 <Filter className="w-5 h-5" />
+                {activeFilterCount > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
+                    {activeFilterCount}
+                  </span>
+                )}
               </button>
+              <span className="text-sm font-medium text-text-secondary">
+                {animes.length} {animes.length === 1 ? "anime carregado" : "animes carregados"}
+              </span>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -410,10 +500,7 @@ export function Catalog() {
               <ViewToggle
                 value={viewMode}
                 onChange={setViewMode}
-                options={[
-                  { value: "grid", label: "", icon: LayoutGrid },
-                  { value: "list", label: "", icon: List },
-                ]}
+                options={VIEW_OPTIONS}
               />
 
               <span className="text-sm font-medium text-text-secondary hidden sm:inline whitespace-nowrap pl-2 border-l border-border-color">
@@ -421,6 +508,7 @@ export function Catalog() {
               </span>
               <div className="relative group w-full sm:w-auto">
                 <select
+                  aria-label="Ordenar catalogo"
                   className="w-full sm:w-auto appearance-none bg-bg-tertiary border-2 border-border-color text-text-primary pl-4 pr-12 py-2.5 rounded-xl text-sm font-medium focus:outline-none focus:border-button-accent focus:ring-2 focus:ring-button-accent/20 cursor-pointer hover:bg-bg-secondary transition-colors"
                   value={filters.orderBy}
                   onChange={(e) => updateFilter("orderBy", e.target.value)}
@@ -442,8 +530,31 @@ export function Catalog() {
             </div>
           </div>
 
+          {error && (
+            <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-5 sm:flex-row sm:items-center sm:justify-between" role="alert">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-400" aria-hidden="true" />
+                <div>
+                  <h2 className="font-bold text-text-primary">
+                    {animes.length > 0 ? "Nao foi possivel carregar mais resultados" : "O catalogo esta temporariamente indisponivel"}
+                  </h2>
+                  <p className="mt-1 text-sm text-text-secondary">A API pode estar ocupada. Aguarde alguns segundos e tente novamente.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={retry}
+                disabled={isRetrying}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 font-bold text-black disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <RefreshCw className={clsx("h-4 w-4", isRetrying && "animate-spin")} />
+                {isRetrying ? "Tentando..." : "Tentar novamente"}
+              </button>
+            </div>
+          )}
+
           {/* Grid / List */}
-          <motion.div
+          <Motion.div
             className={
               viewMode === "grid"
                 ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6"
@@ -456,7 +567,7 @@ export function Catalog() {
           >
             <AnimatePresence mode="popLayout">
               {animes.map((anime) => (
-                <motion.div
+                <Motion.div
                   key={`${anime.id}-${filters.orderBy}`}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -485,45 +596,61 @@ export function Catalog() {
                       }
                     />
                   )}
-                </motion.div>
+                </Motion.div>
               ))}
             </AnimatePresence>
 
             {loading &&
               Array.from({ length: skeletonCount }).map((_, i) => (
-                <motion.div key={`skeleton-${i}`} variants={itemVariants}>
+                <Motion.div key={`skeleton-${i}`} variants={itemVariants}>
                   {viewMode === "grid" ? (
                     <SkeletonCard />
                   ) : (
                     <div className="h-48 bg-bg-secondary rounded-xl animate-pulse" />
                   )}
-                </motion.div>
+                </Motion.div>
               ))}
-          </motion.div>
+          </Motion.div>
 
-          {!loading && animes.length === 0 && (
+          {!loading && !error && animes.length === 0 && (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <div className="w-20 h-20 bg-bg-secondary rounded-full flex items-center justify-center mb-6 shadow-inner">
                 <Search className="w-10 h-10 text-text-secondary" />
               </div>
               <h3 className="text-2xl font-bold text-text-primary mb-2">
-                Nenhum resultado encontrado
+                {filters.q.trim() ? `Nada encontrado para "${filters.q.trim()}"` : "Nenhum resultado encontrado"}
               </h3>
               <p className="text-text-secondary mb-6">
                 Tente usar outros termos ou limpe os filtros.
               </p>
-              <motion.button
+              <Motion.button
                 onClick={clearFilters}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="px-6 py-3 bg-button-accent hover:bg-button-accent/90 text-text-on-primary rounded-xl font-bold transition-all shadow-lg shadow-button-accent/20"
               >
                 Limpar todos os filtros
-              </motion.button>
+              </Motion.button>
             </div>
           )}
 
-          <div ref={sentinelRef} className="h-10 mt-8" />
+          {hasMore && animes.length > 0 && (
+            <div className="mt-10 flex justify-center">
+              <button
+                type="button"
+                onClick={loadMore}
+                disabled={loading}
+                className="inline-flex min-w-52 items-center justify-center gap-2 rounded-xl border border-border-color bg-bg-secondary px-6 py-3 font-bold text-text-primary shadow-lg shadow-shadow-color/10 transition-colors hover:border-button-accent hover:text-button-accent disabled:cursor-wait disabled:opacity-60"
+              >
+                {loading ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                )}
+                {loading ? "Carregando..." : "Carregar mais animes"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

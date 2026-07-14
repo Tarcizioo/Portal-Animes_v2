@@ -4,16 +4,26 @@ import { useCharacterInfo } from '@/hooks/useCharacterInfo';
 import { useCharacterLibrary } from '@/hooks/useCharacterLibrary';
 import { useAuth } from '@/context/AuthContext';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { Heart, Mic2, Film, User, Image as ImageIcon, X, ChevronRight, Info, LayoutGrid, List } from 'lucide-react';
+import { Heart, Mic2, Film, User, Image as ImageIcon, X, ChevronRight, Info } from 'lucide-react';
 import { clsx } from 'clsx';
 import { ScrollToTop } from '@/components/ui/ScrollToTop';
 import { Loader } from '@/components/ui/Loader';
 import { useToast } from '@/context/ToastContext';
-import { ViewToggle } from '@/components/ui/ViewToggle';
 import { AnimeListItem } from '@/components/ui/AnimeListItem';
 import { ImageModal } from '@/components/ui/ImageModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BackButton } from '@/components/ui/BackButton';
+
+const VOICE_LANGUAGE_LABELS = {
+    Portuguese: 'Português',
+    Spanish: 'Espanhol',
+    English: 'Inglês',
+    Japanese: 'Japonês',
+    Korean: 'Coreano',
+    French: 'Francês',
+    German: 'Alemão',
+    Italian: 'Italiano',
+};
 
 export function CharacterDetails() {
     const { id } = useParams();
@@ -27,7 +37,7 @@ export function CharacterDetails() {
     
     // UI State
     const [activeTab, setActiveTab] = useState('anime');
-    const [viewMode, setViewMode] = useState('grid');
+    const [voiceLanguage, setVoiceLanguage] = useState('all');
     const [selectedImage, setSelectedImage] = useState(null);
     const [isVisible, setIsVisible] = useState(false);
 
@@ -65,6 +75,11 @@ export function CharacterDetails() {
         return num.toString();
     };
 
+    const voiceLanguages = Array.from(new Set(voiceActors.map((voice) => voice.language).filter(Boolean)));
+    const filteredVoiceActors = voiceLanguage === 'all'
+        ? voiceActors
+        : voiceActors.filter((voice) => voice.language === voiceLanguage);
+
     useEffect(() => {
         const timer = setTimeout(() => setIsVisible(true), 100);
         return () => clearTimeout(timer);
@@ -83,9 +98,6 @@ export function CharacterDetails() {
             <p>Personagem não encontrado.</p>
         </div>
     );
-
-    const mainVoiceActors = voiceActors.filter(va => va.language === "Japanese").slice(0, 4);
-    const displayVoiceActors = mainVoiceActors.length > 0 ? mainVoiceActors : voiceActors.slice(0, 4);
 
     return (
         <>
@@ -305,10 +317,29 @@ export function CharacterDetails() {
                                                 transition={{ duration: 0.2 }}
                                             >
                                                 {voiceActors.length === 0 ? (
-                                                    <p className="text-text-secondary text-center py-20 italic">Ops! Lembrete mudo: Nenhum dublador registrado.</p>
+                                                    <p className="text-text-secondary text-center py-20 italic">Nenhum dublador registrado.</p>
                                                 ) : (
-                                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                                                        {voiceActors.map((va, idx) => (
+                                                    <>
+                                                        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-color bg-bg-secondary p-3">
+                                                            <div>
+                                                                <p className="text-sm font-bold text-text-primary">Idiomas de dublagem</p>
+                                                                <p className="text-xs text-text-secondary">Português e espanhol aparecem quando essas informações estão disponíveis.</p>
+                                                            </div>
+                                                            <select
+                                                                value={voiceLanguage}
+                                                                onChange={(event) => setVoiceLanguage(event.target.value)}
+                                                                className="rounded-xl border border-border-color bg-bg-primary px-3 py-2 text-sm font-semibold text-text-primary outline-none focus:border-primary"
+                                                            >
+                                                                <option value="all">Todos os idiomas ({voiceActors.length})</option>
+                                                                {voiceLanguages.map((language) => (
+                                                                    <option key={language} value={language}>
+                                                                        {VOICE_LANGUAGE_LABELS[language] || language}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                                        {filteredVoiceActors.map((va, idx) => (
                                                             <Link 
                                                                 to={`/person/${va.person.mal_id}`} 
                                                                 key={`${va.person.mal_id}-${idx}`} 
@@ -321,12 +352,18 @@ export function CharacterDetails() {
                                                                 <div className="min-w-0 pr-2">
                                                                     <h4 className="text-sm sm:text-base font-bold text-text-primary truncate group-hover:text-primary transition-colors">{va.person.name}</h4>
                                                                     <span className="inline-block mt-1 text-[10px] md:text-xs font-bold text-text-secondary uppercase tracking-wider bg-bg-primary border border-border-color px-2 py-0.5 rounded-md">
-                                                                        {va.language}
+                                                                        {VOICE_LANGUAGE_LABELS[va.language] || va.language}
                                                                     </span>
                                                                 </div>
                                                             </Link>
                                                         ))}
-                                                    </div>
+                                                        </div>
+                                                        {filteredVoiceActors.length === 0 && (
+                                                            <p className="py-12 text-center text-sm italic text-text-secondary">
+                                                                Nenhum dublador cadastrado neste idioma.
+                                                            </p>
+                                                        )}
+                                                    </>
                                                 )}
                                             </motion.div>
                                         ) : (

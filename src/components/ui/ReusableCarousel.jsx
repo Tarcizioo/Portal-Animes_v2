@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import clsx from 'clsx';
 
 export function ReusableCarousel({ items, title, icon: Icon, renderItem }) {
     const scrollRef = useRef(null);

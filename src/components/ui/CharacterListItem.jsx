@@ -1,9 +1,8 @@
 import { Heart, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 
 export function CharacterListItem({ character, rank }) {
-    const navigate = useNavigate();
 
     // Rank logic for Gold/Silver/Bronze
     const getRankStyle = (r) => {
@@ -15,10 +14,9 @@ export function CharacterListItem({ character, rank }) {
     };
 
     const rankStyle = getRankStyle(rank);
-
     return (
-        <div
-            onClick={() => navigate(`/character/${character.mal_id}`)}
+        <Link
+            to={`/character/${character.mal_id}`}
             className="group flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 p-4 sm:p-5 bg-bg-secondary hover:bg-bg-tertiary rounded-2xl md:rounded-3xl border border-transparent hover:border-border-color transition-all duration-300 cursor-pointer shadow-sm hover:shadow-xl hover:-translate-y-1"
         >
             <div className="flex items-center gap-4">
@@ -78,6 +76,6 @@ export function CharacterListItem({ character, rank }) {
                     <ChevronRight className="w-5 h-5" />
                 </div>
             </div>
-        </div>
+        </Link>
     );
 }

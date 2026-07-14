@@ -13,10 +13,9 @@ export function CharacterCard({ character, rank }) {
     };
 
     const rankStyle = getRankStyle(rank);
-
     return (
-        <Link 
-            to={`/character/${character.mal_id}`} 
+        <Link
+            to={`/character/${character.mal_id}`}
             className="block group relative w-full aspect-[2/3] md:aspect-[3/4] rounded-2xl md:rounded-3xl overflow-hidden shadow-lg border border-border-color hover:border-primary/50 transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl hover:shadow-primary/20 bg-bg-secondary"
         >
             {/* Full Bleed Image */}

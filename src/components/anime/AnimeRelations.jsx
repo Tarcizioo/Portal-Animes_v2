@@ -1,7 +1,6 @@
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { GitMerge } from 'lucide-react';
-import clsx from 'clsx';
 
 export function AnimeRelations({ relations }) {
     if (!relations || relations.length === 0) return null;

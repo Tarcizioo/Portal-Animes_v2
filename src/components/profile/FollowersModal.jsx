@@ -1,21 +1,33 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
+
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Users, UserCheck, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useFollowList } from '@/hooks/useFollowList';
 import { useFollow } from '@/hooks/useFollow';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 
 // ── Single row in the list ─────────────────────────────────────────────────────
 function FollowRow({ uid, displayName, photoURL }) {
     const { user } = useAuth();
     const { isFollowing, loading, mutating, follow, unfollow } = useFollow(uid);
+    const { toast } = useToast();
     const isOwnRow = user?.uid === uid;
 
-    const handleToggle = () => {
-        if (isFollowing) unfollow();
-        else follow({ displayName, photoURL });
+    const handleToggle = async () => {
+        try {
+            if (isFollowing) {
+                await unfollow();
+                toast.info('Você deixou de seguir este perfil.', 'Seguindo');
+            } else {
+                await follow({ displayName, photoURL });
+                toast.success('Agora você acompanha este perfil.', 'Seguindo');
+            }
+        } catch {
+            toast.error('Não foi possível atualizar o seguimento. Tente novamente.', 'Seguidores');
+        }
     };
 
     return (
@@ -57,10 +69,6 @@ function FollowRow({ uid, displayName, photoURL }) {
 export function FollowersModal({ isOpen, onClose, uid, initialTab = 'followers' }) {
     const [activeTab, setActiveTab] = useState(initialTab);
 
-    // Sync tab whenever the modal opens or initialTab changes
-    useEffect(() => {
-        if (isOpen) setActiveTab(initialTab);
-    }, [isOpen, initialTab]);
 
     const { list: followers, loading: loadingFollowers } = useFollowList(uid, 'followers');
     const { list: following, loading: loadingFollowing } = useFollowList(uid, 'following');

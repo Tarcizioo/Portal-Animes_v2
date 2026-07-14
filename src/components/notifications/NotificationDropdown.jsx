@@ -2,6 +2,7 @@ import { useRef, useEffect } from 'react';
 import { Bell, Check, Heart, Eye, X, Trash2 } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Link } from 'react-router-dom';
+import { useAppPreferences } from '@/hooks/useAppPreferences';
 
 // ─── Timestamp relativo ──────────────────────────────────────────────────────
 function relativeTime(date) {
@@ -100,6 +101,7 @@ export function NotificationDropdown({ isOpen, onClose }) {
         markAsRead, markAllAsRead,
         deleteNotification, deleteAllRead,
     } = useNotifications();
+    const { preferences } = useAppPreferences();
     const dropdownRef = useRef(null);
 
     useEffect(() => {
@@ -112,7 +114,10 @@ export function NotificationDropdown({ isOpen, onClose }) {
 
     if (!isOpen) return null;
 
-    const hasRead = notifications.some(n => n.read);
+    const hasRead = notifications.some((notification) => notification.read);
+    const visibleNotifications = preferences.hideReadNotifications
+        ? notifications.filter((notification) => !notification.read)
+        : notifications;
 
     return (
         <div
@@ -159,13 +164,13 @@ export function NotificationDropdown({ isOpen, onClose }) {
             <div className="max-h-[60vh] overflow-y-auto">
                 {loading ? (
                     <div className="p-8 text-center text-text-secondary text-sm">Carregando...</div>
-                ) : notifications.length === 0 ? (
+                ) : visibleNotifications.length === 0 ? (
                     <div className="p-8 text-center flex flex-col items-center gap-2 text-text-secondary">
                         <Bell className="w-8 h-8 opacity-20" />
                         <p className="text-sm">Nenhuma notificação por enquanto.</p>
                     </div>
                 ) : (
-                    notifications.map((notif, index) => (
+                    visibleNotifications.map((notif, index) => (
                         <NotifItem
                             key={notif.id}
                             notif={notif}

@@ -167,7 +167,7 @@ export function Header() {
                                 <div className="py-2">
                                     {results.map((item, index) => (
                                         <div
-                                            key={item.id}
+                                            key={`${item.kind}-${item.id}`}
                                             onClick={() => handleResultClick(item)}
                                             className={`
                                                 flex gap-4 p-3 cursor-pointer transition-all border-l-4 relative overflow-hidden group/item
@@ -255,6 +255,7 @@ export function Header() {
                                         type="text"
                                         value={query}
                                         onChange={(e) => setQuery(e.target.value)}
+                                        onKeyDown={handleKeyDown}
                                         placeholder="Buscar animes..."
                                         autoFocus
                                         className="w-full bg-bg-tertiary border-2 border-transparent focus:border-primary/20 rounded-xl py-3 pl-10 pr-10 text-lg text-text-primary placeholder:text-text-secondary/50 focus:outline-none focus:bg-bg-secondary transition-all"
@@ -307,7 +308,7 @@ export function Header() {
                                         </h3>
                                         {results.map((item, index) => (
                                             <motion.div
-                                                key={item.id}
+                                                key={`${item.kind}-${item.id}`}
                                                 initial={{ opacity: 0, y: 20 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: index * 0.04 }}

@@ -9,6 +9,9 @@ import { ThemeProvider } from './hooks/useTheme'
 
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
+import { SpeedInsights } from '@vercel/speed-insights/react'
+
+const isSpeedInsightsEnabled = import.meta.env.VITE_ENABLE_SPEED_INSIGHTS === 'true'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -21,5 +24,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </ToastProvider>
       </ThemeProvider>
     </QueryClientProvider>
+    {isSpeedInsightsEnabled && <SpeedInsights />}
   </React.StrictMode>,
 )

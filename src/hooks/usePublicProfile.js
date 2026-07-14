@@ -44,15 +44,12 @@ export function usePublicProfile(userId) {
                     getDocs(collection(db, 'users', userId, 'favorite_characters')),
                 ]);
 
-                const libraryData = librarySnap.docs.map(doc => ({
-                    id: parseInt(doc.id),
-                    ...doc.data()
-                }));
-
-                const charFavData = charFavSnap.docs.map(doc => ({
-                    id: parseInt(doc.id),
-                    ...doc.data()
-                }));
+                const mapDocument = (snapshotDoc) => {
+                    const data = snapshotDoc.data();
+                    return { ...data, id: data.id ?? snapshotDoc.id };
+                };
+                const libraryData = librarySnap.docs.map(mapDocument);
+                const charFavData = charFavSnap.docs.map(mapDocument);
 
                 setProfile(userData);
                 setLibrary(libraryData);

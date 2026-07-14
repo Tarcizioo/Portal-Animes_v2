@@ -3,7 +3,7 @@ import { db } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { APP_CONFIG } from '@/constants/app';
 import { useToast } from '@/context/ToastContext';
-import { apiFetch } from '@/services/api';
+import { anilistApi } from '@/services/anilistApi';
 import {
     collection,
     query,
@@ -25,19 +25,22 @@ const toDateKey = () => {
 
 export function useAnimeLibrary() {
     const { user } = useAuth();
+    const userId = user?.uid || null;
     const { toast } = useToast(); // Use Toast
     const [library, setLibrary] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // 1. Escutar Mudanças em Tempo Real
     useEffect(() => {
-        if (!user) {
-            setLibrary([]);
-            setLoading(false);
-            return;
+        if (!userId) {
+            const resetTimer = setTimeout(() => {
+                setLibrary([]);
+                setLoading(false);
+            }, 0);
+            return () => clearTimeout(resetTimer);
         }
 
-        const libraryRef = collection(db, 'users', user.uid, APP_CONFIG.LIBRARY.COLLECTION_NAME);
+        const libraryRef = collection(db, 'users', userId, APP_CONFIG.LIBRARY.COLLECTION_NAME);
         const q = query(libraryRef);
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -54,7 +57,7 @@ export function useAnimeLibrary() {
         });
 
         return () => unsubscribe();
-    }, [user?.uid]);
+    }, [userId]);
 
     // Helper para Mapeamento Seguro
     const mapAnimeData = (anime, existingData = {}, status = 'plan_to_watch') => {
@@ -77,7 +80,7 @@ export function useAnimeLibrary() {
             anime.image ||
             null;
 
-        // Lógica de Gêneros: Pode vir como strings (View Model) ou objetos (Jikan Raw)
+        // Lógica de Gêneros: pode vir como strings ou objetos normalizados da API
         let genres = [];
         if (Array.isArray(anime.genres)) {
             if (typeof anime.genres[0] === 'string') {
@@ -307,39 +310,26 @@ export function useAnimeLibrary() {
         let processed = 0;
         const total = animesToUpdate.length;
 
-        // Processamento em Lotes (Concurrency control)
-        // Jikan Rate Limit: ~3 req/s safe. Vamos fazer 3 por vez com delay.
-        const concurrency = 3;
-        const delayBetweenRequests = 1000; // 1s entre cada batch para ser bem seguro
+        try {
+            const response = await anilistApi.getAnimeByMalIds(
+                animesToUpdate.map((anime) => anime.id)
+            );
+            const freshById = new Map(
+                (response.data || []).map((anime) => [String(anime.mal_id), anime])
+            );
 
-        const processBatch = async (batch) => {
-            const promises = batch.map(async (anime) => {
-                try {
-                    // Usa apiFetch (com retry automático em 429 + backoff)
-                    const json = await apiFetch(`/anime/${anime.id}/full`);
-                    const freshData = json.data;
-
-                    // Reutiliza addToLibrary que agora é robusto
-                    // Nota: Passamos a instancia do anime atual para manter status/progress
+            for (const anime of animesToUpdate) {
+                const freshData = freshById.get(String(anime.id));
+                if (freshData) {
                     await addToLibrary(freshData, anime.status);
-
-                } catch (err) {
-                    console.error(`Falha ao sync anime ${anime.id}:`, err);
-                } finally {
-                    processed++;
-                    if (onProgress) onProgress(processed, total);
                 }
-            });
-            await Promise.all(promises);
-        };
-
-        // Divide em chunks
-        for (let i = 0; i < animesToUpdate.length; i += concurrency) {
-            const batch = animesToUpdate.slice(i, i + concurrency);
-            await processBatch(batch);
-            if (i + concurrency < animesToUpdate.length) {
-                await new Promise(r => setTimeout(r, delayBetweenRequests));
+                processed++;
+                onProgress?.(processed, total);
             }
+        } catch (error) {
+            console.error('Falha ao sincronizar a biblioteca pela AniList:', error);
+            toast.error('Não foi possível concluir a sincronização.', 'Erro');
+            throw error;
         }
 
         toast.success("Sincronização concluída!", "Sucesso");

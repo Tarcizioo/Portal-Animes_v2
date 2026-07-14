@@ -2,7 +2,6 @@ import { useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useModalClose } from '@/hooks/useModalClose';
 import { X, Copy, Download, Share2, Check, Star, Tv, Clock } from 'lucide-react';
-import html2canvas from 'html2canvas';
 
 export function ShareProfileModal({ isOpen, onClose, user, profile, favorites, library = [] }) {
     useModalClose(isOpen, onClose);
@@ -32,6 +31,7 @@ export function ShareProfileModal({ isOpen, onClose, user, profile, favorites, l
         if (!cardRef.current) return;
         setIsGenerating(true);
         try {
+            const { default: html2canvas } = await import('html2canvas');
             const canvas = await html2canvas(cardRef.current, {
                 useCORS: true,
                 backgroundColor: null,

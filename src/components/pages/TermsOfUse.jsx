@@ -36,7 +36,7 @@ export function TermsOfUse() {
                 <section>
                     <h2 className="text-xl font-bold text-text-primary mb-3">4. Propriedade Intelectual</h2>
                     <p>
-                        Todo o código fonte deste projeto está disponível no GitHub do autor. Os dados de animes (imagens, sinopses, títulos) são fornecidos pela API Jikan (MyAnimeList) e pertencem aos seus respectivos detentores de direitos autorais.
+                        Todo o código fonte deste projeto está disponível no GitHub do autor. Os dados de animes, personagens e profissionais são fornecidos pela API pública da AniList e pertencem aos respectivos detentores de direitos autorais.
                     </p>
                 </section>
 

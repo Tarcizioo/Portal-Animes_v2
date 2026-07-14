@@ -1,7 +1,6 @@
 import { Plus, MoreVertical, PlayCircle, Search, Eye, CheckCircle, Clock, PauseCircle, LayoutGrid, List, Trash2, Star, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
-import { useAuth } from '@/context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function AnimeTrackerList() {

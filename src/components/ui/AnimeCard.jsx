@@ -1,7 +1,8 @@
 import { Star, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ResponsiveImage } from '@/components/ui/ResponsiveImage';
 
-export function AnimeCard({ id, title, genre, image, score, onRemove }) {
+export function AnimeCard({ id, title, genre, image, smallImage, score, onRemove, showScore = true }) {
   const handleRemove = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -13,9 +14,11 @@ export function AnimeCard({ id, title, genre, image, score, onRemove }) {
       <div
         className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 shadow-lg group-hover:shadow-xl group-hover:shadow-primary/30 transition-all duration-300 transform hover:scale-[1.02] active:scale-95"
       >
-        {/* Imagem */}
-        <img
+        <ResponsiveImage
           src={image}
+          fallbackSrc={smallImage}
+          srcSet={smallImage && smallImage !== image ? `${smallImage} 280w, ${image} 560w` : undefined}
+          sizes="(max-width: 639px) 42vw, (max-width: 1023px) 30vw, (max-width: 1279px) 23vw, 19vw"
           alt={title}
           loading="lazy"
           className="w-full h-full object-cover transition-transform duration-500 will-change-transform"
@@ -45,10 +48,12 @@ export function AnimeCard({ id, title, genre, image, score, onRemove }) {
         )}
 
         {/* Nota (Badge) com Glassmorphism Visual */}
+        {showScore && (
         <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
           <Star className={`w-3 h-3 ${score ? 'text-yellow-400 fill-yellow-400' : 'text-text-secondary fill-transparent'}`} />
           <span className="text-white text-xs font-bold">{score != null ? score : 'N/A'}</span>
         </div>
+        )}
       </div>
 
       {/* Título e Gênero */}
