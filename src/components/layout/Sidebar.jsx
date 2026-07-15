@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
-import { Home, Compass, Heart, Settings, ChevronLeft, ChevronRight, LogOut, X, Users, Tv, Menu, Zap, LogIn, Library, Globe, BarChart3, User, Star } from 'lucide-react'; // [Modified]
+import { Home, Compass, Settings, ChevronLeft, ChevronRight, LogOut, Users, Tv, LogIn, Library, Globe, BarChart3, Star } from 'lucide-react';
 import clsx from 'clsx';
+import { PortalAnimesLogo } from '@/components/brand/PortalAnimesLogo';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import { UserSearchModal } from '@/components/profile/UserSearchModal'; // [NEW]
 import { useAuth } from '@/context/AuthContext';
@@ -69,16 +70,22 @@ export function Sidebar() {
       )}>
 
         {/* 1. LOGO  */}
-        <div className={`p-4 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} transition-all duration-300`}>
-          <Link to="/" className={`flex items-center gap-1 text-2xl font-black text-primary tracking-tighter group transition-all duration-300 ${isCollapsed ? 'justify-center w-full' : ''}`}>
-            <div className="w-8 h-8 bg-primary/10 transition-colors rounded-full flex items-center justify-center shrink-0">
-              <Zap className="w-6 h-6 text-primary fill-primary" />
-            </div>
-            {!isCollapsed && (
-              <span className="text-text-primary group-hover:text-primary transition-colors whitespace-nowrap">
-                Portal<span className="text-primary">Animes</span>
-              </span>
+        <div className={`p-3 flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} transition-all duration-300`}>
+          <Link
+            to="/"
+            aria-label="PortalAnimes - Inicio"
+            className={clsx(
+              'group relative flex h-12 items-center overflow-hidden rounded-2xl bg-primary text-text-on-primary shadow-lg shadow-primary/20 transition-all duration-300 hover:-translate-y-0.5 hover:text-text-on-primary hover:shadow-xl hover:shadow-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary',
+              isCollapsed ? 'w-12 justify-center' : 'w-full px-3',
             )}
+          >
+            <span className="pointer-events-none absolute inset-y-0 -left-10 w-8 rotate-12 bg-white/15 blur-sm transition-transform duration-700 group-hover:translate-x-80" />
+            <PortalAnimesLogo
+              compact={isCollapsed}
+              className={isCollapsed ? 'relative z-10 justify-center' : 'relative z-10 gap-2.5'}
+              markClassName="h-10 w-10"
+              wordmarkClassName="text-[1.05rem]"
+            />
           </Link>
         </div>
 

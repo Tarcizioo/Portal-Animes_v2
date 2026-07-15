@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Github, Instagram, Zap, Heart } from 'lucide-react';
+import { Github, Instagram, Heart } from 'lucide-react';
+import { PortalAnimesLogo } from '@/components/brand/PortalAnimesLogo';
 
 
 export function Footer() {
@@ -9,12 +10,16 @@ export function Footer() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
                     {/* Brand Column */}
                     <div className="col-span-1 md:col-span-1 space-y-4">
-                        <Link to="/" className="flex items-center gap-1 group">
-                            <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
-                                <Zap className="w-6 h-6 text-primary fill-primary" />
-                            </div>
-                            <span className="text-xl font-black tracking-tight text-text-primary">
-                                Portal<span className="text-primary">Animes</span>
+                        <Link to="/" aria-label="PortalAnimes - Inicio" className="group inline-flex rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                            <span className="inline-flex items-center gap-2.5">
+                                <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary text-text-on-primary shadow-lg shadow-primary/20 transition-transform duration-300 group-hover:-rotate-3 group-hover:scale-105">
+                                    <PortalAnimesLogo compact markClassName="h-8 w-8" />
+                                </span>
+                                <PortalAnimesLogo
+                                    className="text-text-primary"
+                                    markClassName="hidden"
+                                    wordmarkClassName="text-xl transition-colors group-hover:text-primary"
+                                />
                             </span>
                         </Link>
                         <p className="text-text-secondary text-sm leading-relaxed">

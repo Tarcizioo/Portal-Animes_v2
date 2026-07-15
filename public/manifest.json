@@ -1,6 +1,6 @@
 {
-  "name": "Portal Animes V2",
-  "short_name": "Portal Animes",
+  "name": "PortalAnimes",
+  "short_name": "PortalAnimes",
   "description": "O seu portal definitivo de animes! Organizador, lista de favoritos, lançamentos e estatísticas.",
   "start_url": "/",
   "display": "standalone",

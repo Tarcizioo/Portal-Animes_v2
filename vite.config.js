@@ -15,7 +15,7 @@ export default defineConfig(() => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'Portal Animes',
+        name: 'PortalAnimes',
         short_name: 'PortalAnimes',
         description: 'O seu portal definitivo de animes! Organizador, lista de favoritos, lançamentos e estatísticas.',
         theme_color: '#7c3aed',

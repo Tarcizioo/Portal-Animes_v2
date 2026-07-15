@@ -1,12 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="64" fill="url(#grad)"/>
-  <defs>
-    <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#7c3aed"/>
-      <stop offset="100%" stop-color="#6d28d9"/>
-    </linearGradient>
-  </defs>
-  <g transform="translate(128, 86) scale(10.67)">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="white" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="15" fill="#7c3aed"/>
+  <g transform="translate(5.12 5.12) scale(.84)" fill="#fff8ed">
+    <path d="M8.5 42.5c0-7.8 1.9-14.3 5.6-19.2l.2-13.6c0-3.5 3.7-5.3 6.4-3.1l8.5 7c1.9 1.6 4.6 1.7 6.6.3l7.1-5c2.5-1.8 5.9-.7 7.1 2.1l3.1 7.4c1.1 2.7-.6 5.6-3.5 6l-2.1.3c5 4.6 7.9 10.5 7.9 17.8 0 10.7-8.5 16-23.5 16s-23.5-5.3-23.5-16Z"/>
+    <ellipse cx="23" cy="39" rx="8.25" ry="10.75" fill="#7c3aed"/>
+    <ellipse cx="41.5" cy="39" rx="8.25" ry="10.75" fill="#7c3aed"/>
+    <ellipse cx="24.1" cy="40" rx="2.2" ry="3.2"/>
+    <ellipse cx="40.4" cy="40" rx="2.2" ry="3.2"/>
+    <path d="M6.5 38.5H2.8M7 45l-3.5 1.4m54-7.9h3.7M57 45l3.5 1.4" fill="none" stroke="#fff8ed" stroke-width="3.2" stroke-linecap="round"/>
   </g>
 </svg>
