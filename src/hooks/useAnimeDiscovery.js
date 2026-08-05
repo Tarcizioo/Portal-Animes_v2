@@ -107,7 +107,7 @@ function buildFeaturedAnimes(popularAnimes, seasonalAnimes) {
 
 export function useHomeContent() {
     const popularQuery = useQuery({
-        queryKey: ['popular-anime', 'anilist-v3'],
+        queryKey: ['popular-anime', 'anilist-v4'],
         queryFn: ({ signal }) => fetchPopular(signal),
         staleTime: STALE_TIME_24H,
         gcTime: STALE_TIME_24H,
@@ -116,7 +116,7 @@ export function useHomeContent() {
     });
 
     const seasonalQuery = useQuery({
-        queryKey: ['seasonal-anime', 'anilist-v3'],
+        queryKey: ['seasonal-anime', 'anilist-v4'],
         queryFn: ({ signal }) => fetchSeasonal(signal),
         staleTime: STALE_TIME_24H,
         gcTime: STALE_TIME_24H,

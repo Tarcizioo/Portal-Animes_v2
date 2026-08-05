@@ -32,11 +32,14 @@ export function AnimeDetails() {
     
     const { user } = useAuth();
     const { toast } = useToast();
-    const { library, addToLibrary, incrementProgress, updateProgress, updateRating, toggleFavorite, removeFromLibrary } = useAnimeLibrary();
+    const { library, addToLibrary, updateProgress, updateStatus, updateRating, toggleFavorite, removeFromLibrary } = useAnimeLibrary();
 
     usePageTitle(anime?.title || 'Detalhes');
 
     const libraryEntry = library.find(a => a.id.toString() === id);
+    const status = libraryEntry?.status || 'plan_to_watch';
+    const currentEp = Math.max(0, Number(libraryEntry?.currentEp) || 0);
+    const totalEp = Math.max(0, Number(anime?.episodes) || 0);
 
     const [isVisible, setIsVisible] = useState(false);
     const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
@@ -60,24 +63,17 @@ export function AnimeDetails() {
     };
 
     const handleStatusChange = (newStatus) => {
-        if (user) {
-            addToLibrary(anime, newStatus);
-        } else {
+        if (!user) {
             toast.warning("Faça login para salvar animes na sua lista!");
+            return Promise.resolve(false);
         }
-    };
 
-    const handleIncrement = () => {
-        if (user && libraryEntry) {
-            incrementProgress(libraryEntry.id, libraryEntry.currentEp, libraryEntry.totalEp);
-        } else if (user && anime) {
-            addToLibrary(anime, 'watching');
+        if (libraryEntry) {
+            return updateStatus(libraryEntry.id, newStatus, totalEp);
         }
-    };
 
-    const status = libraryEntry?.status || 'plan_to_watch';
-    const currentEp = libraryEntry?.currentEp || 0;
-    const totalEp = anime?.episodes || 0;
+        return addToLibrary(anime, newStatus);
+    };
 
     if (loading) {
         console.log(`[AnimeDetails] Rendering loading state for ID: ${id}`);
@@ -117,13 +113,14 @@ export function AnimeDetails() {
 
             {/* --- HERO SECTION --- */}
             <motion.section
+                data-header-hero
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.8 }}
                 className="relative w-full min-h-[50vh] lg:h-[65vh] flex items-end"
             >
                 {/* Background & Gradients */}
-                <div className="absolute inset-0 z-0 overflow-hidden">
+                <div className="absolute inset-x-0 -top-20 bottom-0 z-0 overflow-hidden">
                     <div
                         className="absolute inset-0 bg-cover bg-center blur-sm scale-105"
                         style={{ backgroundImage: `url('${bannerImage}')` }}
@@ -205,7 +202,6 @@ export function AnimeDetails() {
                                 libraryEntry={libraryEntry}
                                 status={status}
                                 handleStatusChange={handleStatusChange}
-                                handleIncrement={handleIncrement}
                                 updateProgress={updateProgress}
                                 updateRating={updateRating}
                                 toggleFavorite={toggleFavorite}

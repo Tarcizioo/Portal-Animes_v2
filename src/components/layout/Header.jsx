@@ -10,7 +10,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { NotificationDropdown } from '@/components/notifications/NotificationDropdown';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export function Header() {
+export function Header({ isHeroMode = false }) {
     const { query, setQuery, type, setType, results, isSearching, setResults } = useSearch();
     const navigate = useNavigate();
     const [showMobileSearch, setShowMobileSearch] = useState(false);
@@ -77,10 +77,14 @@ export function Header() {
     };
 
     return (
-        <header className="sticky top-0 z-40 bg-bg-primary px-4 md:px-8 py-4 flex items-center justify-between border-b border-border-color transition-colors duration-300">
+        <header
+            data-app-header
+            data-variant={isHeroMode ? 'hero' : 'glass'}
+            className={`app-header ${isHeroMode ? 'app-header--hero' : 'app-header--glass'} sticky top-0 z-40 min-h-20 px-4 md:px-8 py-4 flex items-center justify-between`}
+        >
 
             <div className="flex items-center gap-4 pl-12 md:pl-0">
-                <div className="block">
+                <div className="app-header__greeting block">
                     <h1 className="text-xl font-bold text-text-primary">Olá, {displayName}!! 👋</h1>
                     <p className="text-sm text-text-secondary hidden sm:block">Descubra novos animes.</p>
                 </div>
@@ -95,7 +99,7 @@ export function Header() {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                        className="p-2 relative text-text-secondary hover:text-primary transition-colors rounded-full hover:bg-bg-tertiary"
+                        className="app-header__chrome p-2 relative text-text-secondary hover:text-primary transition-colors rounded-full hover:bg-bg-tertiary"
                         aria-label="Abrir notificações"
                     >
                         <Bell className="w-6 h-6" />
@@ -112,7 +116,7 @@ export function Header() {
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => setShowMobileSearch(true)}
-                        className="p-2 text-text-secondary hover:text-primary"
+                        className="app-header__chrome p-2 text-text-secondary hover:text-primary"
                         aria-label="Abrir busca"
                     >
                         <Search className="w-6 h-6" />
@@ -138,7 +142,9 @@ export function Header() {
                         <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
                     </div>
 
-                    <div className="relative w-96 focus-within:w-[32rem] transition-all duration-300">
+                    <div
+                        className="search-border-beam relative w-96 rounded-2xl focus-within:w-[32rem] transition-all duration-300"
+                    >
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Search className="w-5 h-5 text-text-secondary group-focus-within:text-primary transition-colors duration-300" />
                         </div>

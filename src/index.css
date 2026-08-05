@@ -253,6 +253,587 @@ a,
   border-radius: 4px;
 }
 
+/* Contextual shell: transparent over immersive artwork, glass elsewhere. */
+.app-header {
+  isolation: isolate;
+  transition:
+    background 320ms ease,
+    box-shadow 320ms ease,
+    backdrop-filter 320ms ease;
+}
+
+.app-header--hero {
+  background: linear-gradient(
+    180deg,
+    rgba(5, 5, 8, 0.58) 0%,
+    rgba(5, 5, 8, 0.24) 68%,
+    transparent 100%
+  );
+  -webkit-backdrop-filter: blur(3px) saturate(112%);
+  backdrop-filter: blur(3px) saturate(112%);
+  box-shadow: none;
+}
+
+.app-header--glass {
+  background: color-mix(in srgb, var(--bg-primary) 86%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(124%);
+  backdrop-filter: blur(18px) saturate(124%);
+  box-shadow: 0 18px 42px -36px rgba(0, 0, 0, 0.9);
+}
+
+.app-header--hero .app-header__greeting h1 {
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.62);
+}
+
+.app-header--hero .app-header__greeting p,
+.app-header--hero .app-header__chrome {
+  color: rgba(255, 255, 255, 0.76);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.58);
+}
+
+.app-header--hero .app-header__chrome:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.app-shell {
+  --ambient-art-opacity: 0.76;
+}
+
+.app-ambient-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-ambient-backdrop__transition {
+  position: absolute;
+  top: -8rem;
+  right: -8rem;
+  left: -8rem;
+  height: min(68rem, calc(100vh + 8rem));
+  height: min(68rem, calc(100svh + 8rem));
+  overflow: hidden;
+  opacity: 0.92;
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 70%, transparent 100%);
+}
+
+.app-ambient-backdrop__transition::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-primary) 30%, transparent) 0%,
+      transparent 32%
+    ),
+    linear-gradient(
+      180deg,
+      transparent 55%,
+      color-mix(in srgb, var(--bg-primary) 98%, transparent) 100%
+    );
+}
+
+.app-ambient-backdrop__image {
+  position: absolute;
+  inset: -5rem;
+  width: calc(100% + 10rem);
+  height: calc(100% + 10rem);
+  max-width: none;
+  object-fit: cover;
+  opacity: var(--ambient-art-opacity);
+  filter: blur(64px) brightness(0.6) saturate(1.12);
+  transform: scale(1.08);
+}
+
+.app-sidebar {
+  isolation: isolate;
+  background: var(--bg-secondary);
+  box-shadow: 14px 0 38px -36px rgba(0, 0, 0, 0.9);
+  transition:
+    width 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 260ms ease,
+    box-shadow 260ms ease,
+    backdrop-filter 260ms ease;
+  will-change: width;
+}
+
+.app-sidebar[data-collapsed="true"] {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-secondary) 60%, transparent) 0%,
+      color-mix(in srgb, var(--bg-secondary) 66%, transparent) 62%,
+      color-mix(in srgb, var(--bg-secondary) 84%, transparent) 100%
+    );
+  -webkit-backdrop-filter: blur(20px) saturate(122%);
+  backdrop-filter: blur(20px) saturate(122%);
+  box-shadow: 16px 0 44px -36px rgba(0, 0, 0, 0.92);
+}
+
+.app-sidebar button {
+  padding: 0;
+  border: 0;
+}
+
+.app-sidebar .app-sidebar__toggle {
+  position: absolute;
+  right: auto;
+  left: calc(100% - 3.875rem);
+  transition:
+    left 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 160ms ease,
+    background-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.app-sidebar__label,
+.app-sidebar__section-copy,
+.app-sidebar__profile-copy,
+.app-sidebar__wordmark,
+.app-sidebar__logout {
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 140ms ease 90ms,
+    transform 180ms ease 90ms;
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__label,
+.app-sidebar[data-collapsed="true"] .app-sidebar__section-copy,
+.app-sidebar[data-collapsed="true"] .app-sidebar__profile-copy,
+.app-sidebar[data-collapsed="true"] .app-sidebar__wordmark,
+.app-sidebar[data-collapsed="true"] .app-sidebar__logout {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-0.35rem);
+  transition-delay: 0ms;
+}
+
+.app-sidebar__toggle-mark,
+.app-sidebar__toggle-expand,
+.app-sidebar__toggle-collapse {
+  transition:
+    opacity 160ms ease,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.app-sidebar[data-collapsed="false"] .app-sidebar__toggle-mark,
+.app-sidebar[data-collapsed="false"] .app-sidebar__toggle-expand {
+  opacity: 0;
+  transform: scale(0.82);
+}
+
+.app-sidebar[data-collapsed="false"] .app-sidebar__toggle-collapse {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__toggle {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--bg-secondary) 68%, transparent);
+  box-shadow: 0 10px 26px -18px rgba(0, 0, 0, 0.9);
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__toggle-mark {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__toggle-expand,
+.app-sidebar[data-collapsed="true"] .app-sidebar__toggle-collapse {
+  opacity: 0;
+  transform: scale(0.82);
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__toggle:hover .app-sidebar__toggle-mark,
+.app-sidebar[data-collapsed="true"] .app-sidebar__toggle:focus-visible .app-sidebar__toggle-mark {
+  opacity: 0;
+  transform: scale(0.84);
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__toggle:hover .app-sidebar__toggle-expand,
+.app-sidebar[data-collapsed="true"] .app-sidebar__toggle:focus-visible .app-sidebar__toggle-expand {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__profile {
+  background: color-mix(in srgb, var(--bg-tertiary) 66%, transparent);
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__profile-row {
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+}
+
+.app-sidebar[data-collapsed="true"] .pointer-glow {
+  --pointer-glow-color: color-mix(in srgb, var(--primary) 72%, transparent);
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__utility {
+  background: transparent;
+  box-shadow: none;
+}
+
+.app-sidebar[data-collapsed="true"] .app-sidebar__utility:hover,
+.app-sidebar[data-collapsed="true"] .app-sidebar__utility:focus-visible {
+  background: color-mix(in srgb, var(--bg-tertiary) 44%, transparent);
+}
+
+.hero-stage {
+  isolation: isolate;
+}
+
+.hero-card {
+  background: #121214;
+  box-shadow:
+    0 34px 90px -28px rgba(0, 0, 0, 0.78),
+    0 16px 42px -24px rgba(0, 0, 0, 0.68),
+    0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+.hero-frame {
+  min-height: 650px;
+  min-height: clamp(40.625rem, calc(100svh - 6.5rem), 47.5rem);
+}
+
+.hero-backdrop-image {
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.hero-action {
+  padding: 1rem 2rem;
+}
+
+button.hero-action--secondary {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+button.hero-action--secondary:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.hero-indicator {
+  padding: 0;
+  border: 0;
+  color: #fff;
+  background: transparent;
+}
+
+.hero-indicator:hover {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.hero-indicator:focus,
+.hero-indicator:focus-visible {
+  outline: none;
+}
+
+.hero-indicator:focus-visible {
+  box-shadow:
+    0 0 0 2px #121214,
+    0 0 0 4px rgba(255, 255, 255, 0.78);
+}
+
+.hero-indicator__track {
+  box-shadow: 0 0 14px -4px rgba(255, 255, 255, 0.88);
+}
+
+.hero-indicator:not([aria-current="true"]):hover .hero-indicator__track {
+  background: rgba(255, 255, 255, 0.62);
+}
+
+@media (min-width: 1024px) {
+  .hero-frame {
+    min-height: 704px;
+    min-height: clamp(44rem, calc(100svh - 7.5rem), 52rem);
+  }
+}
+
+@media (min-width: 768px) and (max-height: 700px) {
+  .hero-frame {
+    min-height: 650px;
+  }
+}
+
+[data-theme="light"] .app-shell,
+[data-theme="rose"] .app-shell,
+[data-theme="sunshine"] .app-shell,
+[data-theme="matcha"] .app-shell {
+  --ambient-art-opacity: 0.34;
+}
+
+[data-theme="light"] .app-sidebar[data-collapsed="true"],
+[data-theme="rose"] .app-sidebar[data-collapsed="true"],
+[data-theme="sunshine"] .app-sidebar[data-collapsed="true"],
+[data-theme="matcha"] .app-sidebar[data-collapsed="true"] {
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-secondary) 78%, transparent) 0%,
+      color-mix(in srgb, var(--bg-secondary) 82%, transparent) 62%,
+      color-mix(in srgb, var(--bg-secondary) 92%, transparent) 100%
+    );
+}
+
+@media (max-width: 767px) {
+  .app-ambient-backdrop__transition {
+    top: -5rem;
+    right: -4rem;
+    left: -4rem;
+    height: min(58rem, calc(100vh + 7rem));
+    height: min(58rem, calc(100svh + 7rem));
+    opacity: 0.78;
+  }
+
+  .app-ambient-backdrop__image {
+    inset: -3rem;
+    width: calc(100% + 6rem);
+    height: calc(100% + 6rem);
+    filter: blur(46px) brightness(0.56) saturate(1.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header,
+  .app-sidebar,
+  .app-sidebar__toggle,
+  .app-sidebar__label,
+  .app-sidebar__section-copy,
+  .app-sidebar__profile-copy,
+  .app-sidebar__wordmark,
+  .app-sidebar__logout,
+  .app-sidebar__toggle-mark,
+  .app-sidebar__toggle-expand,
+  .app-sidebar__toggle-collapse,
+  .hero-poster,
+  .hero-action,
+  .hero-indicator__track {
+    transition: none;
+  }
+
+  .hero-backdrop-image {
+    will-change: auto;
+  }
+
+  .hero-loading {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .app-sidebar[data-collapsed="true"] {
+    background: color-mix(in srgb, var(--bg-secondary) 94%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .app-ambient-backdrop__image {
+    opacity: 0.18;
+  }
+}
+
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .app-header--hero {
+    background: rgba(5, 5, 8, 0.82);
+  }
+
+  .app-header--glass {
+    background: var(--bg-primary);
+  }
+
+  .app-sidebar[data-collapsed="true"] {
+    background: var(--bg-secondary);
+  }
+}
+/* Pointer-following glow shared by navigation, brand, and hero actions. */
+.pointer-glow {
+  --pointer-glow-x: 50%;
+  --pointer-glow-y: 50%;
+  --pointer-glow-color: var(--primary);
+  --pointer-glow-border-size: 96px;
+  --pointer-glow-inner-size: 118px;
+  position: relative;
+  isolation: isolate;
+}
+
+
+.pointer-glow:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--pointer-glow-color) 65%, transparent);
+  outline-offset: 2px;
+}
+
+.pointer-glow--brand {
+  --pointer-glow-color: color-mix(in srgb, var(--primary) 35%, white);
+  --pointer-glow-border-size: 124px;
+  --pointer-glow-inner-size: 150px;
+}
+
+.pointer-glow--brand:focus-visible {
+  outline: none;
+}
+
+.pointer-glow--hero {
+  --pointer-glow-color: color-mix(in srgb, var(--primary) 72%, white);
+  --pointer-glow-border-size: 112px;
+  --pointer-glow-inner-size: 138px;
+}
+
+.pointer-glow::before,
+.pointer-glow::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 180ms ease;
+}
+
+.pointer-glow::before {
+  z-index: 2;
+  inset: 0;
+  padding: 1px;
+  background: radial-gradient(
+    circle var(--pointer-glow-border-size) at var(--pointer-glow-x) var(--pointer-glow-y),
+    color-mix(in srgb, var(--pointer-glow-color) 96%, white 4%) 0%,
+    color-mix(in srgb, var(--pointer-glow-color) 48%, transparent) 42%,
+    transparent 72%
+  );
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--pointer-glow-color) 18%, transparent));
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.pointer-glow::after {
+  z-index: 1;
+  inset: 1px;
+  background: radial-gradient(
+    circle var(--pointer-glow-inner-size) at var(--pointer-glow-x) var(--pointer-glow-y),
+    color-mix(in srgb, var(--pointer-glow-color) 28%, transparent) 0%,
+    color-mix(in srgb, var(--pointer-glow-color) 13%, transparent) 38%,
+    transparent 72%
+  );
+  box-shadow: inset 0 0 16px color-mix(in srgb, var(--pointer-glow-color) 8%, transparent);
+}
+
+.pointer-glow:focus-visible::before,
+.pointer-glow:focus-visible::after {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  html:not([data-reduced-motion="true"]) .pointer-glow:hover {
+    border-color: transparent;
+  }
+  html:not([data-reduced-motion="true"]) .pointer-glow:hover::before,
+  html:not([data-reduced-motion="true"]) .pointer-glow:hover::after {
+    opacity: 1;
+  }
+}
+
+@property --search-beam-x {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 50%;
+}
+
+@property --search-beam-opacity {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.58;
+}
+
+.search-border-beam {
+  --search-beam-x: 50%;
+  --search-beam-opacity: 0.58;
+  position: relative;
+  isolation: isolate;
+}
+
+.search-border-beam::before,
+.search-border-beam::after {
+  position: absolute;
+  content: "";
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.search-border-beam::before {
+  z-index: 2;
+  inset: 0;
+  padding: 1px;
+  background: radial-gradient(
+    ellipse 96px 18px at var(--search-beam-x) 100%,
+    color-mix(in srgb, var(--primary) 34%, white) 0%,
+    color-mix(in srgb, var(--primary) 88%, transparent) 28%,
+    color-mix(in srgb, var(--primary) 40%, transparent) 54%,
+    transparent 76%
+  );
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--primary) 30%, transparent));
+  opacity: var(--search-beam-opacity);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+}
+
+.search-border-beam::after {
+  z-index: 1;
+  inset: 1px;
+  background: radial-gradient(
+    ellipse 142px 46px at var(--search-beam-x) 112%,
+    color-mix(in srgb, var(--primary) 20%, transparent) 0%,
+    color-mix(in srgb, var(--primary) 9%, transparent) 42%,
+    transparent 72%
+  );
+  opacity: calc(var(--search-beam-opacity) * 0.86);
+  box-shadow: inset 0 -1px 12px color-mix(in srgb, var(--primary) 7%, transparent);
+}
+
+.search-border-beam:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--primary) 46%, transparent);
+  outline-offset: 2px;
+}
+
+@keyframes search-border-beam-rotate {
+  0% {
+    --search-beam-x: 6%;
+    --search-beam-opacity: 0;
+  }
+  12%, 88% {
+    --search-beam-opacity: 1;
+  }
+  100% {
+    --search-beam-x: 94%;
+    --search-beam-opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-reduced-motion="true"]) .search-border-beam {
+    animation: search-border-beam-rotate 3.1s linear infinite;
+  }
+}
+
 @keyframes toast-enter {
   0% {
     opacity: 0;

@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="title description">
+  <title id="title">PortalAnimes</title>
+  <desc id="description">Capa social do PortalAnimes para o repositorio no GitHub.</desc>
+
+  <defs>
+    <linearGradient id="background" x1="80" y1="36" x2="1184" y2="612" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#080913" />
+      <stop offset="0.5" stop-color="#0d0d20" />
+      <stop offset="1" stop-color="#070812" />
+    </linearGradient>
+    <linearGradient id="brand-gradient" x1="108" y1="154" x2="350" y2="398" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b82f6" />
+      <stop offset="0.48" stop-color="#6366f1" />
+      <stop offset="0.76" stop-color="#7c3aed" />
+      <stop offset="1" stop-color="#ff0f39" />
+    </linearGradient>
+    <linearGradient id="accent-gradient" x1="398" y1="0" x2="1110" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#60a5fa" />
+      <stop offset="0.5" stop-color="#818cf8" />
+      <stop offset="1" stop-color="#fb7185" />
+    </linearGradient>
+    <radialGradient id="blue-glow" cx="0" cy="0" r="1" gradientTransform="translate(185 118) rotate(36) scale(405 300)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3b82f6" stop-opacity="0.2" />
+      <stop offset="1" stop-color="#3b82f6" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="rose-glow" cx="0" cy="0" r="1" gradientTransform="translate(1124 536) rotate(-145) scale(438 290)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ff0f39" stop-opacity="0.17" />
+      <stop offset="1" stop-color="#ff0f39" stop-opacity="0" />
+    </radialGradient>
+    <pattern id="grid" width="44" height="44" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V44" fill="none" stroke="#ffffff" stroke-opacity="0.035" />
+    </pattern>
+    <filter id="card-shadow" x="-35%" y="-35%" width="170%" height="180%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="24" stdDeviation="26" flood-color="#000000" flood-opacity="0.45" />
+      <feDropShadow dx="0" dy="10" stdDeviation="20" flood-color="#6366f1" flood-opacity="0.28" />
+    </filter>
+    <filter id="soft-shadow" x="-30%" y="-50%" width="160%" height="200%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000000" flood-opacity="0.32" />
+    </filter>
+    <clipPath id="brand-card-clip">
+      <rect x="108" y="154" width="242" height="242" rx="56" />
+    </clipPath>
+    <mask id="cat-eye-mask">
+      <rect width="64" height="64" fill="white" />
+      <ellipse cx="23" cy="39" rx="8.25" ry="10.75" fill="black" />
+      <ellipse cx="41.5" cy="39" rx="8.25" ry="10.75" fill="black" />
+    </mask>
+    <symbol id="cat-mark" viewBox="0 0 64 64">
+      <path
+        fill="currentColor"
+        mask="url(#cat-eye-mask)"
+        d="M8.5 42.5c0-7.8 1.9-14.3 5.6-19.2l.2-13.6c0-3.5 3.7-5.3 6.4-3.1l8.5 7c1.9 1.6 4.6 1.7 6.6.3l7.1-5c2.5-1.8 5.9-.7 7.1 2.1l3.1 7.4c1.1 2.7-.6 5.6-3.5 6l-2.1.3c5 4.6 7.9 10.5 7.9 17.8 0 10.7-8.5 16-23.5 16s-23.5-5.3-23.5-16Z"
+      />
+      <ellipse cx="24.1" cy="40" rx="2.2" ry="3.2" fill="currentColor" />
+      <ellipse cx="40.4" cy="40" rx="2.2" ry="3.2" fill="currentColor" />
+      <path d="M6.5 38.5H2.8M7 45l-3.5 1.4m54-7.9h3.7M57 45l3.5 1.4" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" />
+    </symbol>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#background)" />
+  <rect width="1280" height="640" fill="url(#blue-glow)" />
+  <rect width="1280" height="640" fill="url(#rose-glow)" />
+  <rect width="1280" height="640" fill="url(#grid)" />
+
+  <path d="M-44 522C228 402 353 650 632 548S1027 398 1324 505" fill="none" stroke="url(#accent-gradient)" stroke-opacity="0.12" stroke-width="2" />
+  <path d="M-18 557C246 444 386 674 660 579S1049 437 1302 526" fill="none" stroke="url(#accent-gradient)" stroke-opacity="0.08" stroke-width="1" />
+
+  <rect x="24" y="24" width="1232" height="592" rx="44" fill="none" stroke="url(#accent-gradient)" stroke-opacity="0.22" />
+  <rect x="25" y="25" width="1230" height="590" rx="43" fill="none" stroke="#ffffff" stroke-opacity="0.035" />
+
+  <g filter="url(#card-shadow)">
+    <rect x="108" y="154" width="242" height="242" rx="56" fill="url(#brand-gradient)" />
+  </g>
+  <g clip-path="url(#brand-card-clip)">
+    <circle cx="126" cy="165" r="126" fill="#ffffff" fill-opacity="0.13" />
+    <circle cx="346" cy="399" r="118" fill="#090a18" fill-opacity="0.13" />
+    <path d="M80 346C176 271 248 402 384 276" fill="none" stroke="#ffffff" stroke-opacity="0.12" stroke-width="2" />
+  </g>
+  <rect x="108.5" y="154.5" width="241" height="241" rx="55.5" fill="none" stroke="#ffffff" stroke-opacity="0.24" />
+  <use href="#cat-mark" x="132" y="178" width="194" height="194" color="#fff8ed" />
+
+  <g fill="#fff8ed">
+    <path d="M91 139l3.2 8.1 8.3 3.1-8.3 3.2-3.2 8.1-3.1-8.1-8.2-3.2 8.2-3.1 3.1-8.1Z" fill-opacity="0.9" />
+    <path d="M361 393l2 5.1 5.2 2-5.2 2-2 5.1-2-5.1-5.1-2 5.1-2 2-5.1Z" fill-opacity="0.72" />
+  </g>
+
+  <g font-family="Lexend, 'Segoe UI', sans-serif">
+    <g filter="url(#soft-shadow)">
+      <rect x="398" y="143" width="302" height="42" rx="21" fill="#ffffff" fill-opacity="0.065" stroke="#ffffff" stroke-opacity="0.11" />
+      <circle cx="422" cy="164" r="5" fill="#818cf8" />
+      <text x="438" y="171" fill="#d9dafd" font-size="15" font-weight="700" letter-spacing="2.1">SEU UNIVERSO ANIME</text>
+    </g>
+
+    <text x="394" y="280" fill="#fafafa" font-size="78" font-weight="900" letter-spacing="-5.4">PortalAnimes</text>
+    <rect x="398" y="303" width="606" height="5" rx="2.5" fill="url(#accent-gradient)" />
+
+    <text x="398" y="359" fill="#c8c9d6" font-size="25" font-weight="500" letter-spacing="-0.55">Descubra, acompanhe e organize seus animes.</text>
+
+    <g font-size="16" font-weight="700">
+      <g>
+        <rect x="398" y="397" width="118" height="48" rx="16" fill="#ffffff" fill-opacity="0.065" stroke="#ffffff" stroke-opacity="0.1" />
+        <circle cx="422" cy="421" r="7" fill="#60a5fa" />
+        <text x="439" y="427" fill="#f0f0f5">React 19</text>
+      </g>
+      <g>
+        <rect x="530" y="397" width="112" height="48" rx="16" fill="#ffffff" fill-opacity="0.065" stroke="#ffffff" stroke-opacity="0.1" />
+        <circle cx="554" cy="421" r="7" fill="#818cf8" />
+        <text x="571" y="427" fill="#f0f0f5">AniList</text>
+      </g>
+      <g>
+        <rect x="656" y="397" width="130" height="48" rx="16" fill="#ffffff" fill-opacity="0.065" stroke="#ffffff" stroke-opacity="0.1" />
+        <circle cx="680" cy="421" r="7" fill="#fbbf24" />
+        <text x="697" y="427" fill="#f0f0f5">Firebase</text>
+      </g>
+      <g>
+        <rect x="800" y="397" width="94" height="48" rx="16" fill="#ffffff" fill-opacity="0.065" stroke="#ffffff" stroke-opacity="0.1" />
+        <circle cx="824" cy="421" r="7" fill="#fb7185" />
+        <text x="841" y="427" fill="#f0f0f5">PWA</text>
+      </g>
+    </g>
+
+    <g transform="translate(398 494)">
+      <rect width="9" height="9" rx="4.5" fill="#34d399" />
+      <text x="21" y="11" fill="#a7a8b7" font-size="17" font-weight="600" letter-spacing="0.1">portal-animes-v2.vercel.app</text>
+    </g>
+  </g>
+
+  <g transform="translate(1093 112)">
+    <circle cx="0" cy="0" r="6" fill="#60a5fa" />
+    <circle cx="24" cy="0" r="6" fill="#818cf8" />
+    <circle cx="48" cy="0" r="6" fill="#fb7185" />
+  </g>
+</svg>

@@ -24,6 +24,8 @@ const TOP_ANIME_QUERY = `
       pageInfo { currentPage hasNextPage lastPage }
       media(type: ANIME, isAdult: false, sort: [SCORE_DESC, POPULARITY_DESC]) {
         ${MEDIA_FIELDS}
+        bannerImage
+        trailer { thumbnail }
       }
     }
   }
@@ -41,6 +43,8 @@ const SEASONAL_ANIME_QUERY = `
         sort: [POPULARITY_DESC, SCORE_DESC]
       ) {
         ${MEDIA_FIELDS}
+        bannerImage
+        trailer { thumbnail }
       }
     }
   }
@@ -621,7 +625,7 @@ function mapMedia(media = {}) {
     title_japanese: media.title?.native || null,
     images: mapImages(media.coverImage),
     cover_color: media.coverImage?.color || null,
-    banner: media.bannerImage || null,
+    banner: media.bannerImage || media.trailer?.thumbnail || null,
     synopsis: cleanAniListText(media.description),
     score: media.averageScore ? media.averageScore / 10 : null,
     year: media.seasonYear || null,

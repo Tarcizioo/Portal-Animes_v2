@@ -67,6 +67,38 @@ describe('AniList catalog and discovery mappings', () => {
     expect(result.map((item) => item.entry.mal_id)).toEqual([3, 2]);
   });
 
+  it('prefers banner artwork and falls back to the trailer thumbnail', () => {
+    const result = mapAniListRecommendations([{
+      recommendations: {
+        nodes: [
+          {
+            rating: 20,
+            mediaRecommendation: {
+              id: 2,
+              idMal: 2,
+              title: { romaji: 'Trailer backdrop' },
+              bannerImage: null,
+              trailer: { thumbnail: 'trailer-backdrop' },
+            },
+          },
+          {
+            rating: 50,
+            mediaRecommendation: {
+              id: 3,
+              idMal: 3,
+              title: { romaji: 'Banner backdrop' },
+              bannerImage: 'wide-banner',
+              trailer: { thumbnail: 'trailer-fallback' },
+            },
+          },
+        ],
+      },
+    }]);
+
+    expect(result[0].entry.banner).toBe('wide-banner');
+    expect(result[1].entry.banner).toBe('trailer-backdrop');
+  });
+
   it('does not present image resolutions as different artwork', () => {
     const result = mapAniListArtwork({
       coverImage: { extraLarge: 'cover-xl', large: 'cover-large', medium: 'cover-medium' },

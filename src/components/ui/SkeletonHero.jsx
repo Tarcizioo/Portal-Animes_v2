@@ -1,6 +1,6 @@
 export function SkeletonHero() {
   return (
-    <div className="w-full h-[500px] rounded-3xl bg-gray-200 dark:bg-gray-800 animate-pulse relative overflow-hidden">
+    <div className="hero-card hero-frame hero-loading relative w-full animate-pulse overflow-hidden rounded-[2rem] bg-gray-200 dark:bg-gray-800 sm:rounded-[2.5rem]" aria-hidden="true">
 
       {/* Simulação do conteúdo interno */}
       <div className="absolute bottom-0 left-0 p-8 lg:p-12 w-full max-w-4xl space-y-4">

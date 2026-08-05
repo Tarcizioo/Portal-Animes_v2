@@ -109,7 +109,7 @@ export function Home() {
 
   return (
 
-    <div className="p-6 lg:p-10 space-y-12">
+    <div className="space-y-12 px-6 pb-6 pt-4 lg:px-10 lg:pb-10 lg:pt-6">
       {loading ? (
         <>
           <SkeletonHero />
