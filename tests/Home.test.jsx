@@ -63,14 +63,25 @@ vi.mock('@/components/library/ContinueWatching', () => ({
   ContinueWatchingSkeleton: () => <section data-testid="continue-loading">Carregando progresso</section>,
 }));
 
+vi.mock('@/components/home/HomeJourneySnapshot', () => ({
+  HomeJourneySnapshot: () => <section data-testid="home-journey-snapshot">Sua jornada</section>,
+}));
+
 vi.mock('@/components/ui/AnimeCarousel', () => ({
-  AnimeCarousel: ({ id, title, variant }) => (
-    <section data-testid={`carousel-${id}`} data-variant={variant}>{title}</section>
+  AnimeCarousel: ({ id, title, variant, animes = [] }) => (
+    <section
+      data-testid={`carousel-${id}`}
+      data-variant={variant}
+      data-anime-ids={animes.map((anime) => anime.id).join(',')}
+    >
+      {title}
+    </section>
   ),
 }));
 
 const featuredAnime = { id: 10, title: 'Horizonte Carmesim' };
 const popularAnime = { id: 20, title: 'Além do Céu' };
+const seasonalAnime = { id: 30, title: 'Primavera Infinita' };
 const libraryAnime = {
   id: '1',
   title: 'Ecos do Amanhã',
@@ -78,6 +89,23 @@ const libraryAnime = {
   currentEp: 8,
   totalEp: 12,
   lastUpdated: { seconds: 10 },
+};
+const plannedAnime = {
+  id: '2',
+  title: 'Promessa Estelar',
+  status: 'plan_to_watch',
+  currentEp: 0,
+  totalEp: 24,
+  isFavorite: true,
+  lastUpdated: { seconds: 30 },
+};
+const pausedAnime = {
+  id: '3',
+  title: 'Cidade de Vidro',
+  status: 'paused',
+  currentEp: 4,
+  totalEp: 12,
+  lastUpdated: { seconds: 20 },
 };
 
 function renderHome() {
@@ -90,7 +118,7 @@ describe('Home', () => {
     state.home = {
       featuredAnimes: [featuredAnime],
       popularAnimes: [popularAnime],
-      seasonalAnimes: [],
+      seasonalAnimes: [seasonalAnime],
       loading: false,
       error: null,
       isRefreshing: false,
@@ -107,19 +135,33 @@ describe('Home', () => {
     state.useHomeContent.mockReset();
   });
 
-  it('keeps the hero first and shows real authenticated sections without genre rows', () => {
+  it('orders the expanded authenticated home after the hero and progress', () => {
     state.user = { uid: 'user-1' };
-    state.library = [libraryAnime];
+    state.library = [libraryAnime, plannedAnime, pausedAnime];
     state.recommendations = Array.from({ length: 4 }, (_, index) => ({ id: 100 + index, title: `Recomendação ${index + 1}` }));
 
     const { container } = renderHome();
 
-    const hero = screen.getByTestId('hero');
-    const continueWatching = screen.getByTestId('continue-watching');
-    expect(hero.compareDocumentPosition(continueWatching) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const expectedOrder = [
+      screen.getByTestId('hero'),
+      screen.getByTestId('continue-watching'),
+      screen.getByTestId('carousel-next-choices'),
+      screen.getByTestId('carousel-recommendations'),
+      screen.getByTestId('home-journey-snapshot'),
+      screen.getByTestId('carousel-acclaimed'),
+      screen.getByTestId('carousel-seasonal-highlights'),
+    ];
+
+    expectedOrder.slice(1).forEach((section, index) => {
+      expect(expectedOrder[index].compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    expect(screen.getByTestId('carousel-next-choices')).toHaveTextContent('Sua próxima escolha');
     expect(screen.getByTestId('carousel-recommendations')).toHaveTextContent('Para você');
     expect(screen.getByTestId('carousel-recommendations')).toHaveAttribute('data-variant', 'home');
-    expect(screen.queryByTestId('carousel-popular')).not.toBeInTheDocument();
+    expect(screen.getByTestId('carousel-acclaimed')).toHaveTextContent('Aclamados pela comunidade');
+    expect(screen.getByTestId('carousel-acclaimed')).toHaveAttribute('data-anime-ids', String(popularAnime.id));
+    expect(screen.getByTestId('carousel-seasonal-highlights')).toHaveTextContent('Destaques da temporada');
     expect(container).not.toHaveTextContent('Romance e Amor');
     expect(container).not.toHaveTextContent('Esportes & Competição');
     expect(state.useHomeContent).toHaveBeenCalledWith({ includeGenreRows: false });
@@ -128,11 +170,16 @@ describe('Home', () => {
     expect(state.incrementProgress).toHaveBeenCalledWith('1', 8, 12, { source: 'home_continue_watching' });
   });
 
-  it('uses a single editorial fallback for visitors', () => {
+  it('shows both editorial rails to visitors without personalized sections', () => {
     renderHome();
 
-    expect(screen.getByTestId('carousel-popular')).toHaveTextContent('Em alta');
+    expect(screen.getByTestId('carousel-acclaimed')).toHaveTextContent('Aclamados pela comunidade');
+    expect(screen.getByTestId('carousel-acclaimed')).toHaveAttribute('data-anime-ids', String(popularAnime.id));
+    expect(screen.getByTestId('carousel-seasonal-highlights')).toHaveTextContent('Destaques da temporada');
+    expect(screen.getByTestId('carousel-seasonal-highlights')).toHaveAttribute('data-anime-ids', String(seasonalAnime.id));
     expect(screen.queryByTestId('carousel-recommendations')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('carousel-next-choices')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('home-journey-snapshot')).not.toBeInTheDocument();
     expect(screen.queryByTestId('continue-watching')).not.toBeInTheDocument();
     expect(screen.queryByTestId('continue-empty')).not.toBeInTheDocument();
   });

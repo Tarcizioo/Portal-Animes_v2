@@ -128,10 +128,10 @@ export function Header({ isHeroMode = false, showMobileBrand = false, hideOnMobi
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-                        className="app-header__chrome relative grid h-11 w-11 place-items-center rounded-2xl text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary"
+                        className="app-header__chrome relative grid h-11 w-11 place-items-center rounded-2xl !p-0 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary"
                         aria-label="Abrir notificações"
                     >
-                        <Bell className="w-6 h-6" />
+                        <Bell aria-hidden="true" className="block h-6 w-6 shrink-0" />
                         {unreadCount > 0 && (
                             <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-bg-primary animate-pulse"></span>
                         )}
@@ -146,12 +146,12 @@ export function Header({ isHeroMode = false, showMobileBrand = false, hideOnMobi
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
                         onClick={() => { setSelectedIndex(-1); setShowMobileSearch(true); }}
-                        className="app-header__chrome grid h-11 w-11 place-items-center rounded-2xl text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary"
+                        className="app-header__chrome grid h-11 w-11 place-items-center rounded-2xl !p-0 text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-primary"
                         aria-label="Abrir busca"
                         aria-haspopup="dialog"
                         aria-expanded={showMobileSearch}
                     >
-                        <Search className="w-6 h-6" />
+                        <Search aria-hidden="true" className="block h-6 w-6 shrink-0" />
                     </motion.button>
                 </div>
 

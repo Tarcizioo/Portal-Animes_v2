@@ -60,6 +60,11 @@ describe('Header mobile quick search accessibility', () => {
     expect(document.querySelector('[data-app-header]')).toHaveClass('hidden', 'md:flex');
 
     const opener = screen.getByRole('button', { name: 'Abrir busca' });
+    const notificationsOpener = screen.getByRole('button', { name: 'Abrir notificações' });
+    expect(opener).toHaveClass('grid', 'h-11', 'w-11', 'place-items-center', '!p-0');
+    expect(notificationsOpener).toHaveClass('grid', 'h-11', 'w-11', 'place-items-center', '!p-0');
+    expect(opener.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(notificationsOpener.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
     await user.click(opener);
 
     const dialog = screen.getByRole('dialog', { name: 'Busca rápida' });

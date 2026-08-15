@@ -1,7 +1,10 @@
-import { BarChart2, Compass, RefreshCw, Sparkles, WifiOff } from 'lucide-react';
+import { Bookmark, CalendarDays, Compass, RefreshCw, Sparkles, Trophy, WifiOff } from 'lucide-react';
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Hero } from '@/components/home/Hero';
+import { HomeJourneySnapshot } from '@/components/home/HomeJourneySnapshot';
+import { selectHomeSections } from '@/components/home/selectHomeSections';
 import {
   ContinueWatching,
   ContinueWatchingEmpty,
@@ -136,7 +139,13 @@ export function Home() {
   const heroIsLoading = loading && featuredAnimes.length === 0;
   const hasPersonalizedRecommendations = Boolean(user) && recommendations.length > 0;
   const showRecommendationLoading = Boolean(user) && (libraryLoading || recommendationsLoading);
-  const showEditorialFallback = !user || (!showRecommendationLoading && !hasPersonalizedRecommendations);
+  const additionalSections = useMemo(() => selectHomeSections({
+    featuredAnimes,
+    popularAnimes,
+    seasonalAnimes,
+    recommendations,
+    library,
+  }), [featuredAnimes, library, popularAnimes, recommendations, seasonalAnimes]);
 
   usePageTitle('Início');
 
@@ -169,6 +178,18 @@ export function Home() {
         )
       )}
 
+      {user && additionalSections.nextChoices.length > 0 && (
+        <AnimeCarousel
+          id="next-choices"
+          title="Sua próxima escolha"
+          icon={Bookmark}
+          animes={additionalSections.nextChoices}
+          variant="home"
+          viewAllHref="/library"
+          viewAllLabel="Ver biblioteca"
+        />
+      )}
+
       {showRecommendationLoading && <HomeRailSkeleton title="Para você" />}
 
       {user && recommendationsError && !recommendationsLoading && (
@@ -186,14 +207,27 @@ export function Home() {
         />
       )}
 
-      {showEditorialFallback && popularAnimes.length > 0 && (
+      {user && !libraryLoading && <HomeJourneySnapshot library={library} />}
+
+      {additionalSections.acclaimed.length > 0 && (
         <AnimeCarousel
-          id="popular"
-          title="Em alta"
-          icon={BarChart2}
-          animes={popularAnimes}
+          id="acclaimed"
+          title="Aclamados pela comunidade"
+          icon={Trophy}
+          animes={additionalSections.acclaimed}
           variant="home"
-          viewAllHref="/catalog?orderBy=popularity"
+          viewAllHref="/catalog?orderBy=ranking"
+        />
+      )}
+
+      {additionalSections.seasonal.length > 0 && (
+        <AnimeCarousel
+          id="seasonal-highlights"
+          title="Destaques da temporada"
+          icon={CalendarDays}
+          animes={additionalSections.seasonal}
+          variant="home"
+          viewAllHref="/discover"
         />
       )}
 

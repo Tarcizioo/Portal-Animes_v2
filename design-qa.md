@@ -62,6 +62,17 @@ Evidências adicionais:
 - Tipografia e alvos interativos mantêm legibilidade e áreas de toque de pelo menos 44 px, mesmo quando o mock gerado usa elementos menores.
 - No viewport curto de 320 × 568, a barra fixa pode sobrepor apenas conteúdo ainda rolável; CTAs principais permanecem alcançáveis.
 
+## Iteração — alinhamento do Header e densidade da Início
+
+- **Header:** a regra global de `button` adicionava padding ao conteúdo dos botões fixos de 44 × 44 px. Busca e notificações agora anulam esse padding e normalizam o SVG; a medição após HMR ficou em `0 px / 0 px` nos eixos X/Y em 390 × 844 e para notificações em 1280 × 800.
+- **Início autenticada:** preserva Hero, continuidade e recomendações e acrescenta, conforme os dados disponíveis, `Sua próxima escolha`, `Sua jornada`, `Aclamados pela comunidade` e `Destaques da temporada`.
+- **Início visitante:** mantém o Hero e recebe os dois trilhos editoriais, sem expor seções pessoais vazias.
+- **Separação de papéis:** os trilhos de gênero continuam exclusivos de Descobrir; a Início prioriza continuidade, decisões pessoais e uma amostra editorial.
+- **Eficiência:** as novas seções reutilizam biblioteca, populares e temporada já carregados. Não foi adicionada nenhuma consulta de rede.
+- **Variedade:** Hero, recomendações, biblioteca e trilhos editoriais são deduplicados por ID antes da renderização.
+
+Evidência anterior ao aumento de densidade: `artifacts/design-audit/home-expansion-before-390x844.png`. A recaptura incremental pelo navegador in-app foi recusada pela política automática da ferramenta nesta execução; a composição nova reutiliza o `AnimeCarousel` já validado nos três viewports e um grid responsivo novo coberto por teste focado.
+
 ## Validação técnica
 
 - ESLint: aprovado.
@@ -69,5 +80,7 @@ Evidências adicionais:
 - Firestore emulator: 21 testes de regras aprovados.
 - Build de produção: aprovado, 3022 módulos transformados.
 - `git diff --check`, varredura de emojis, placeholders externos e marcadores de conflito: aprovados.
+- Iteração atual: ESLint global e `git diff --check` aprovados; teste focado do Header 1/1 e do resumo de jornada 2/2 aprovados.
+- Os dois arquivos de integração da Home foram adicionados, mas o runner incremental não iniciou por `spawn EPERM`; a tentativa autorizada foi recusada por limite de uso da ferramenta, não por falha de asserção.
 
 final result: passed
