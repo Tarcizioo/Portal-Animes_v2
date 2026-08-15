@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Heart, Plus, GripVertical, User, Pin, Pencil, Check, X, Star, Image as ImageIcon } from 'lucide-react';
+import { Heart, GripVertical, User, Pin, Pencil, Check, Star, Image as ImageIcon } from 'lucide-react';
 import { ViewToggle } from '@/components/ui/ViewToggle';
+import { ResponsiveImage } from '@/components/ui/ResponsiveImage';
 import { ImageSelectModal } from '@/components/profile/ImageSelectModal';
 import {
     DndContext,
@@ -15,7 +15,6 @@ import {
     DragOverlay
 } from '@dnd-kit/core';
 import {
-    arrayMove,
     SortableContext,
     sortableKeyboardCoordinates,
     rectSortingStrategy,
@@ -23,64 +22,68 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { clsx } from 'clsx';
-
-// --- Components Helpers ---
+import { getReorderedFavoriteIds } from '@/components/profile/profileFavoritesOrder';
 
 function FavoriteCard({ item, type, isOverlay = false, isEditing = false, dragListeners = {}, dragAttributes = {}, onOpenImageModal }) {
     const linkPath = type === 'anime' ? `/anime/${item.id}` : `/character/${item.id}`;
 
     return (
         <div className={clsx(
-            "group",
+            "group min-w-0",
             isOverlay && "cursor-grabbing scale-105"
         )}>
             {/* Card image */}
             <div className={clsx(
-                "relative aspect-[2/3] rounded-xl overflow-hidden bg-bg-tertiary border border-border-color shadow-md mb-2",
+                "relative aspect-[2/3] rounded-xl overflow-hidden bg-bg-tertiary border border-border-color shadow-md",
                 "group-hover:shadow-lg group-hover:shadow-primary/20 transition-all duration-300",
-                isEditing && "hover:border-primary/50"
+                isEditing && "hover:border-primary/50",
+                !isEditing && "mb-2",
             )}>
-                {/* Drag Handle (Only in Edit Mode) */}
-                {isEditing && (
-                    <div
-                        {...dragListeners}
-                        {...dragAttributes}
-                        className="absolute top-2 right-2 z-20 p-2 bg-black/60 backdrop-blur-md rounded-lg cursor-grab active:cursor-grabbing hover:bg-primary transition-colors touch-none shadow-lg"
-                        title="Segure para reordenar"
-                    >
-                        <GripVertical className="w-4 h-4 text-white" />
-                    </div>
-                )}
-
-                {/* Edit Image Button (Only in Edit Mode) */}
-                {isEditing && onOpenImageModal && (
-                    <button
-                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenImageModal(item); }}
-                        className="absolute bottom-2 right-2 z-20 p-2 bg-black/60 backdrop-blur-md rounded-lg hover:bg-button-accent transition-colors shadow-lg group-hover:scale-105"
-                        title="Mudar Foto do Card"
-                    >
-                        <ImageIcon className="w-4 h-4 text-white" />
-                    </button>
-                )}
-
                 <Link
-                    to={isEditing ? "#" : linkPath}
+                    to={linkPath}
                     className={clsx("block w-full h-full", isEditing && "pointer-events-none")}
                     draggable={false}
                 >
-                    <img
-                        src={item.image}
+                    <ResponsiveImage
+                        src={item.image || item.smallImage}
+                        fallbackSrc={item.smallImage}
                         alt={item.title || item.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        draggable={false}
+                        sizes="(max-width: 639px) 29vw, (max-width: 1023px) 22vw, 180px"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-80" />
                 </Link>
             </div>
 
+            {isEditing && !isOverlay && (
+                <div className="mb-2 mt-1.5 grid grid-cols-2 gap-1.5" aria-label={`Ações de ${item.title || item.name}`}>
+                    <button
+                        type="button"
+                        {...dragListeners}
+                        {...dragAttributes}
+                        aria-label={`Reordenar ${item.title || item.name}`}
+                        className="grid h-11 min-w-11 touch-none cursor-grab place-items-center rounded-lg border border-border-color bg-bg-tertiary text-text-secondary transition-colors hover:border-primary/40 hover:text-primary active:cursor-grabbing"
+                        title="Segure para reordenar"
+                    >
+                        <GripVertical className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                    {onOpenImageModal ? (
+                        <button
+                            type="button"
+                            onClick={() => onOpenImageModal(item)}
+                            aria-label={`Trocar imagem de ${item.title || item.name}`}
+                            className="grid h-11 min-w-11 place-items-center rounded-lg border border-border-color bg-bg-tertiary text-text-secondary transition-colors hover:border-button-accent/40 hover:text-button-accent"
+                            title="Trocar imagem"
+                        >
+                            <ImageIcon className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                    ) : null}
+                </div>
+            )}
+
             {/* Title below card — matches RecentActivity style */}
             <Link
-                to={isEditing ? "#" : linkPath}
+                to={linkPath}
                 className={clsx(isEditing && "pointer-events-none")}
                 draggable={false}
             >
@@ -106,7 +109,7 @@ function SortableFavoriteItem({ item, type, isEditing, onOpenImageModal }) {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.3 : 1,
-        touchAction: 'none'
+        touchAction: 'auto'
     };
 
     return (
@@ -142,7 +145,9 @@ export function FavoritesWidget({
 
     const activeTab = selectedTab || preferredView || 'anime';
     const isPinned = preferredView === activeTab;
-    const propItems = activeTab === 'anime' ? animeFavorites : characterFavorites;
+    const propItems = activeTab === 'anime'
+        ? (Array.isArray(animeFavorites) ? animeFavorites : [])
+        : (Array.isArray(characterFavorites) ? characterFavorites : []);
     const type = activeTab;
     const sourceItems = propItems.slice(0, 10);
     const sourceKey = `${type}:${sourceItems.map((item) => item.id).join('|')}`;
@@ -164,49 +169,40 @@ export function FavoritesWidget({
 
     const handleDragEnd = (event) => {
         const { active, over } = event;
-
-        if (active.id !== over?.id) {
-            const oldIndex = localItems.findIndex((item) => item.id === active.id);
-            const newIndex = localItems.findIndex((item) => item.id === over.id);
-            const newOrder = arrayMove(localItems, oldIndex, newIndex);
-            const newOrderIds = newOrder.map((item) => item.id);
-            const restOfItems = propItems.slice(10).map((item) => item.id);
-            const fullIds = [...newOrderIds, ...restOfItems];
-
-            setOrderOverride({ key: sourceKey, ids: newOrderIds });
-            if (activeTab === 'anime') onReorderAnimes(fullIds);
-            else onReorderCharacters(fullIds);
+        const nextOrder = getReorderedFavoriteIds(localItems, propItems.slice(10), active.id, over?.id);
+        if (nextOrder) {
+            setOrderOverride({ key: sourceKey, ids: nextOrder.visibleIds });
+            if (activeTab === 'anime') onReorderAnimes?.(nextOrder.allIds);
+            else onReorderCharacters?.(nextOrder.allIds);
         }
         setActiveId(null);
     };
 
     const handlePin = () => {
         if (isPinned) {
-            onSetPreferredView(null);
+            onSetPreferredView?.(null);
         } else {
-            onSetPreferredView(activeTab);
+            onSetPreferredView?.(activeTab);
         }
     };
 
     return (
-        <div className="bg-bg-secondary border border-border-color rounded-2xl p-4 md:p-6 relative overflow-hidden">
+        <div className="relative min-w-0 overflow-hidden rounded-2xl border border-border-color bg-bg-secondary p-4 md:p-6">
 
             {/* Decorative Background */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
 
             {/* Section title — matches RecentActivity / AchievementBadges pattern */}
-            <div className="flex items-center justify-between mb-4 md:mb-6 relative z-10">
+            <div className="relative z-10 mb-4 flex min-w-0 items-center justify-between gap-3 md:mb-6">
                 <h3 className="font-bold text-text-primary flex items-center gap-2">
-                    <Star className="w-4 h-4 text-button-accent" />
+                    <Star className="w-4 h-4 text-button-accent" aria-hidden="true" />
                     Favoritos
                 </h3>
+                <span className="shrink-0 rounded-full border border-border-color bg-bg-tertiary px-2.5 py-1 text-[10px] font-bold text-text-secondary">{localItems.length} de 10</span>
             </div>
 
-            {/* Controls row */}
-            <div className="flex flex-row flex-wrap items-center justify-between gap-2 mb-4 md:mb-6 relative z-10">
-
-                <div className="flex items-center gap-2 md:gap-4">
-                    {/* Modern Tab Switcher */}
+            <div className="relative z-10 mb-4 grid min-w-0 gap-3 md:mb-6">
+                <div className="min-w-0 overflow-x-auto pb-1">
                     <ViewToggle
                         value={activeTab}
                         onChange={(val) => { setSelectedTab(val); setIsEditing(false); }}
@@ -215,21 +211,15 @@ export function FavoritesWidget({
                             { value: 'character', label: 'Personagens', icon: User },
                         ]}
                     />
-
-                    {/* Count Badge */}
-                    <span className="text-xs font-bold text-text-secondary bg-bg-tertiary px-3 py-1.5 rounded-full border border-border-color">
-                        {localItems.length} / 10
-                    </span>
                 </div>
 
-                {/* Actions */}
                 {!readOnly && (
-                    <div className="flex items-center gap-2">
-                        {/* Edit Toggle */}
+                    <div className="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2 sm:flex sm:justify-end">
                         <button
+                            type="button"
                             onClick={() => setIsEditing(!isEditing)}
                             className={clsx(
-                                "flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg border transition-all",
+                                "flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 text-xs font-bold transition-all",
                                 isEditing
                                     ? "bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20"
                                     : "bg-bg-tertiary text-text-secondary border-border-color hover:text-text-primary hover:bg-bg-tertiary/80"
@@ -239,18 +229,19 @@ export function FavoritesWidget({
                             {isEditing ? 'Concluir' : 'Organizar'}
                         </button>
 
-                        {/* Pin Button */}
                         <button
+                            type="button"
                             onClick={handlePin}
+                            aria-label={isPinned ? 'Remover como aba padrão' : 'Definir como aba padrão'}
                             className={clsx(
-                                "p-2 rounded-lg border transition-all",
+                                "grid h-11 w-11 place-items-center rounded-lg border transition-all",
                                 isPinned
                                     ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
                                     : "bg-transparent text-text-secondary border-transparent hover:bg-bg-tertiary"
                             )}
-                            title={isPinned ? "Visão padrão definida" : "Definir como visão padrão"}
+                            title={isPinned ? "Aba padrão definida" : "Definir como aba padrão"}
                         >
-                            <Pin className={clsx("w-4 h-4", isPinned && "fill-current")} />
+                            <Pin className={clsx("w-4 h-4", isPinned && "fill-current")} aria-hidden="true" />
                         </button>
                     </div>
                 )}
@@ -259,7 +250,7 @@ export function FavoritesWidget({
             {/* Grid Area */}
             {readOnly ? (
                 // Static View
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-3 relative z-10">
+                <div className="relative z-10 grid min-w-0 grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 lg:grid-cols-5">
                     {localItems.map((item) => (
                         <FavoriteCard key={item.id} item={item} type={type} />
                     ))}
@@ -278,7 +269,7 @@ export function FavoritesWidget({
                     onDragStart={(e) => setActiveId(e.active.id)}
                     onDragEnd={handleDragEnd}
                 >
-                    <div className="grid grid-cols-5 sm:grid-cols-4 lg:grid-cols-5 gap-3 relative z-10">
+                    <div className="relative z-10 grid min-w-0 grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3 lg:grid-cols-5">
                         <SortableContext items={localItems.map(i => i.id)} strategy={rectSortingStrategy}>
                             {localItems.map((item) => (
                                 <SortableFavoriteItem
@@ -291,22 +282,20 @@ export function FavoritesWidget({
                             ))}
                         </SortableContext>
 
-                        {/* Empty Slots */}
-                        {Array.from({ length: 10 - localItems.length }).map((_, i) => (
-                            <div
-                                key={`empty-${i}`}
-                                className="aspect-[2/3] rounded-xl border-2 border-dashed border-border-color bg-bg-tertiary/30 flex flex-col items-center justify-center gap-3 text-text-secondary/50 hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all cursor-pointer group"
-                            >
-                                <div className="p-3 rounded-full bg-bg-tertiary group-hover:scale-110 transition-transform shadow-sm">
-                                    <Plus className="w-5 h-5" />
-                                </div>
-                                <span className="text-xs font-bold uppercase tracking-wider opacity-70">Vazio</span>
+                        {localItems.length === 0 && (
+                            <div className="col-span-full rounded-xl border-2 border-dashed border-border-color px-5 py-10 text-center">
+                                <Heart className="mx-auto h-10 w-10 text-text-secondary/20" />
+                                <p className="mt-3 text-sm font-bold text-text-primary">Sua vitrine ainda está vazia.</p>
+                                <p className="mt-1 text-xs text-text-secondary">Favorite títulos no catálogo para vê-los aqui.</p>
+                                <Link to="/catalog" className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-button-accent px-4 text-xs font-black text-text-on-primary">
+                                    Explorar catálogo
+                                </Link>
                             </div>
-                        ))}
+                        )}
                     </div>
 
                     <DragOverlay adjustScale={true}>
-                        {activeId ? (
+                        {activeId && localItems.some((item) => item.id === activeId) ? (
                             <FavoriteCard
                                 item={localItems.find(i => i.id === activeId)}
                                 type={type}
@@ -319,7 +308,7 @@ export function FavoritesWidget({
             )}
 
             {/* Modal para Trocar Imagem do Post/Card */}
-            <ImageSelectModal
+            {!readOnly ? <ImageSelectModal
                 isOpen={imageModalState.open}
                 onClose={() => setImageModalState({ open: false, item: null })}
                 item={imageModalState.item}
@@ -330,7 +319,7 @@ export function FavoritesWidget({
                     }
                     setImageModalState({ open: false, item: null });
                 }}
-            />
+            /> : null}
         </div>
     );
 }

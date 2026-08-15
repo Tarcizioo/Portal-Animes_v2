@@ -1,7 +1,8 @@
-import { useEffect, useCallback } from 'react';
+import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useAccessibleDialog } from '@/hooks/useAccessibleDialog';
 
 /**
  * Reutilizável - exibe qualquer imagem em fullscreen com animação suave.
@@ -13,20 +14,11 @@ import { X } from 'lucide-react';
  *   altText   {string}
  */
 export function ImageModal({ isOpen, onClose, imageUrl, altText = '' }) {
-    const handleKey = useCallback(
-        (e) => { if (e.key === 'Escape') onClose(); },
-        [onClose]
-    );
+    const dialogRef = useRef(null);
+    const closeButtonRef = useRef(null);
+    useAccessibleDialog({ isOpen, onClose, dialogRef, initialFocusRef: closeButtonRef });
 
-    useEffect(() => {
-        if (!isOpen) return;
-        document.addEventListener('keydown', handleKey);
-        document.body.style.overflow = 'hidden';
-        return () => {
-            document.removeEventListener('keydown', handleKey);
-            document.body.style.overflow = '';
-        };
-    }, [isOpen, handleKey]);
+    if (typeof document === 'undefined') return null;
 
     const modal = (
         <AnimatePresence>
@@ -44,6 +36,7 @@ export function ImageModal({ isOpen, onClose, imageUrl, altText = '' }) {
                 >
                     {/* Image container */}
                     <motion.div
+                        ref={dialogRef}
                         key="image-modal-content"
                         initial={{ opacity: 0, scale: 0.9, y: 12 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -52,12 +45,18 @@ export function ImageModal({ isOpen, onClose, imageUrl, altText = '' }) {
                         className="relative flex flex-col items-center gap-3"
                         style={{ maxWidth: '92vw', maxHeight: '92vh' }}
                         onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={altText ? `Visualização de ${altText}` : 'Visualização de imagem'}
+                        tabIndex={-1}
                     >
                         {/* Botão fechar — acima da imagem */}
                         <div className="self-end">
                             <button
+                                ref={closeButtonRef}
+                                type="button"
                                 onClick={onClose}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-black/60 hover:bg-black/90 border border-white/10 hover:border-white/30 rounded-full text-white/70 hover:text-white text-xs font-medium transition-all backdrop-blur-sm"
+                                className="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-4 text-xs font-medium text-white/70 backdrop-blur-sm transition-all hover:border-white/30 hover:bg-black/90 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                                 aria-label="Fechar"
                             >
                                 <X className="w-4 h-4" /> Fechar

@@ -514,15 +514,15 @@ export function Catalog() {
                   onChange={(e) => updateFilter("orderBy", e.target.value)}
                 >
                   <optgroup label="Destaques">
-                    <option value="ranking">🏆 Top Ranking (Geral)</option>
-                    <option value="popularity">🔥 Mais Populares</option>
-                    <option value="favorites">❤️ Mais Favoritados</option>
+                    <option value="ranking">Top Ranking (Geral)</option>
+                    <option value="popularity">Mais Populares</option>
+                    <option value="favorites">Mais Favoritados</option>
                   </optgroup>
                   <optgroup label="Outros">
-                    <option value="score">⭐ Melhor Nota (Filtro)</option>
-                    <option value="newest">📅 Lançamentos Recentes</option>
-                    <option value="az">🔤 Ordem Alfabética (A-Z)</option>
-                    <option value="za">🔤 Ordem Alfabética (Z-A)</option>
+                    <option value="score">Melhor Nota (Filtro)</option>
+                    <option value="newest">Lançamentos Recentes</option>
+                    <option value="az">Ordem Alfabética (A-Z)</option>
+                    <option value="za">Ordem Alfabética (Z-A)</option>
                   </optgroup>
                 </select>
                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />

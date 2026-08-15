@@ -7,7 +7,7 @@
 
 Plataforma social para descobrir, acompanhar e organizar animes. O projeto combina
 uma interface responsiva em React 19 com dados públicos da AniList, autenticação
-Google, persistência em tempo real no Firebase, recursos de PWA e uma suíte de
+por e-mail/senha ou Google, persistência em tempo real no Firebase, recursos de PWA e uma suíte de
 testes automatizados.
 
 O Portal Animes V2 foi desenvolvido como projeto de portfólio para demonstrar
@@ -26,6 +26,7 @@ performance, acessibilidade e experiência do usuário em uma aplicação comple
 - [Qualidade e testes](#qualidade-e-testes)
 - [Executando localmente](#executando-localmente)
 - [Configuração do Firebase](#configuração-do-firebase)
+- [Telemetria de produto](#telemetria-de-produto-opcional)
 - [Deploy na Vercel](#deploy-na-vercel)
 - [Custos e limites](#custos-e-limites)
 - [Segurança](#segurança)
@@ -77,7 +78,8 @@ performance, acessibilidade e experiência do usuário em uma aplicação comple
 
 ### Perfil e recursos sociais
 
-- Login com Google por meio do Firebase Authentication.
+- Entrada e cadastro por e-mail/senha, recuperação de senha e verificação de e-mail.
+- Google disponível como método alternativo por meio do Firebase Authentication.
 - Perfil público ou privado com nome, bio, gêneros favoritos e presença online.
 - Avatar circular e banner com recorte, zoom, prévia e compressão WebP no navegador.
 - Vitrine de animes, personagens e estúdios favoritos.
@@ -138,9 +140,9 @@ flowchart LR
 | `users/{uid}/library/{animeId}` | Biblioteca e progresso | Dono ou perfil público | Somente o dono |
 | `users/{uid}/favorite_characters/{id}` | Personagens favoritos | Dono ou perfil público | Somente o dono |
 | `users/{uid}/followed_studios/{id}` | Estúdios favoritos | Dono ou perfil público | Somente o dono |
-| `users/{uid}/notifications/{id}` | Central de notificações | Somente o dono | Atores autenticados criam; dono gerencia |
-| `users/{uid}/following/{uid}` | Usuários seguidos | Pública | Relação atômica validada |
-| `users/{uid}/followers/{uid}` | Seguidores | Pública | Relação atômica validada |
+| `users/{uid}/notifications/{id}` | Central de notificações | Dono; ator consulta as próprias referências na exclusão | Atores autenticados criam; dono gerencia; ator remove as próprias |
+| `users/{uid}/following/{uid}` | Usuários seguidos | Dono ou perfil público | Relação atômica validada |
+| `users/{uid}/followers/{uid}` | Seguidores | Dono ou perfil público | Relação atômica validada |
 | `comments/{id}` | Comentários e curtidas | Pública | Usuários autenticados, com autoria validada |
 
 As regras impedem alterações de identidade, payloads inesperados, notificações
@@ -269,6 +271,7 @@ VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
 VITE_FIREBASE_MEASUREMENT_ID=your_measurement_id
+VITE_ENABLE_PRODUCT_ANALYTICS=false
 VITE_ENABLE_SPEED_INSIGHTS=false
 ```
 
@@ -286,10 +289,11 @@ Nunca adicione credenciais de service account, chaves privadas ou `.env.local` a
 
 1. Crie um projeto no [Firebase Console](https://console.firebase.google.com/).
 2. Registre uma aplicação Web e copie a configuração para `.env.local`.
-3. Ative o provedor Google em **Authentication > Sign-in method**.
-4. Crie um banco Cloud Firestore.
-5. Adicione `localhost` e o domínio da Vercel aos domínios autorizados do Authentication.
-6. Publique as regras versionadas no repositório.
+3. Ative os provedores **E-mail/senha** e **Google** em **Authentication > Sign-in method**.
+4. Revise os templates de verificação de e-mail e recuperação de senha em **Authentication > Templates**.
+5. Crie um banco Cloud Firestore.
+6. Adicione `localhost` e o domínio da Vercel aos domínios autorizados do Authentication.
+7. Publique as regras versionadas no repositório.
 
 ```bash
 firebase deploy --only firestore:rules
@@ -297,6 +301,37 @@ firebase deploy --only firestore:rules
 
 O fluxo atual de avatar e banner faz recorte e compressão no navegador e não depende
 do Cloud Storage for Firebase.
+
+## Telemetria de produto (opcional)
+
+A telemetria permanece desativada por padrão. Para habilitá-la conscientemente,
+ative o Firebase Analytics no projeto e defina as duas variáveis abaixo no ambiente
+de deploy:
+
+```env
+VITE_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
+VITE_ENABLE_PRODUCT_ANALYTICS=true
+```
+
+O adaptador só é carregado quando há configuração explícita, o navegador oferece
+suporte e o ambiente não é de teste. Sem essas condições, o serviço opera como
+`noop` e não envia eventos.
+
+A allowlist aceita somente estes eventos de produto sem PII:
+
+- `sign_up` e `login`: método `email` ou `google`;
+- `onboarding_completed`: seleção de favorito e informação agregada de importação;
+- `anime_opened`: ID numérico do anime e origem enumerada;
+- `library_updated`: ação, ID numérico, status, quantidade e origem enumerada;
+- `progress_updated`: ID numérico, episódios anterior/atual, total e origem enumerada.
+
+Parâmetros desconhecidos são descartados. E-mail, nome, título livre, texto livre,
+senha e identificadores de usuário não fazem parte do schema de eventos.
+
+Essa allowlist vale para os eventos personalizados enviados pelo Portal. Ao habilitar
+o Firebase Analytics, revise também a coleta automática configurada no projeto
+(por exemplo, página, sessão, navegador e dispositivo) e mantenha a política de
+privacidade da implantação coerente com essa configuração.
 
 ## Comandos
 
@@ -334,7 +369,7 @@ obrigatória, desde que permaneça dentro das cotas gratuitas de cada serviço:
 
 - A [AniList disponibiliza uma API pública gratuita](https://docs.anilist.co/guide/introduction) e não exige autenticação para dados públicos.
 - A API possui [limites por minuto e proteção contra rajadas](https://docs.anilist.co/guide/rate-limiting); por isso a aplicação usa cache persistido e consultas agrupadas.
-- Firebase Authentication com Google e uma base Firestore podem operar no plano Spark dentro das [cotas sem custo](https://firebase.google.com/docs/projects/billing/firebase-pricing-plans).
+- Firebase Authentication com e-mail/senha ou Google e uma base Firestore podem operar no plano Spark dentro das [cotas sem custo](https://firebase.google.com/docs/projects/billing/firebase-pricing-plans).
 - A Vercel oferece o plano [Hobby de US$ 0 por mês](https://vercel.com/pricing) para projetos pessoais e não comerciais, sujeito aos limites de uso.
 - O repositório público utiliza ferramentas open source e o workflow do GitHub Actions.
 
@@ -360,6 +395,7 @@ obrigatória, desde que permaneça dentro das cotas gratuitas de cada serviço:
 ## Limitações conhecidas
 
 - Dados novos dependem da disponibilidade e dos limites da AniList.
+- A exclusão é coordenada pelo cliente; uma falha de rede entre a limpeza do Firestore e a remoção no Firebase Auth pode exigir uma nova tentativa.
 - Alguns títulos, imagens, dublagens ou traduções podem não existir na fonte pública.
 - A PWA mantém o app shell e consultas persistidas, mas conteúdo ainda não armazenado exige conexão.
 - O plano Vercel Hobby é destinado a projetos pessoais e não comerciais.

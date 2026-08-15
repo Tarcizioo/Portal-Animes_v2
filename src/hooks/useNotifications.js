@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
-    collection, deleteDoc, doc, documentId, getDocs, limit,
-    onSnapshot, orderBy, query, updateDoc, where, writeBatch,
+    collection, deleteDoc, doc, getDoc, limit, onSnapshot,
+    orderBy, query, updateDoc, writeBatch,
 } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { db } from '@/services/firebase';
@@ -10,12 +10,13 @@ async function hydrateActorProfiles(notifications) {
     const actorIds = [...new Set(notifications.map((item) => item.actorUid).filter(Boolean))];
     if (actorIds.length === 0) return notifications;
 
-    const profileEntries = [];
-    for (let index = 0; index < actorIds.length; index += 10) {
-        const ids = actorIds.slice(index, index + 10);
-        const snapshot = await getDocs(query(collection(db, 'users'), where(documentId(), 'in', ids)));
-        snapshot.forEach((profileDoc) => profileEntries.push([profileDoc.id, profileDoc.data()]));
-    }
+    const profileSnapshots = await Promise.allSettled(actorIds.map((actorUid) => (
+        getDoc(doc(db, 'users', actorUid))
+    )));
+    const profileEntries = profileSnapshots.flatMap((result) => {
+        if (result.status !== 'fulfilled' || !result.value.exists()) return [];
+        return [[result.value.id, result.value.data()]];
+    });
 
     const profiles = new Map(profileEntries);
     return notifications.map((notification) => {

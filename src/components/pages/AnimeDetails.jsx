@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
     Star, Users, Trophy, Heart, Film, List, ZoomIn, X
@@ -9,6 +9,7 @@ import { usePageTitle } from '@/hooks/usePageTitle';
 import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
+import { PRODUCT_EVENTS, trackProductEvent } from '@/services/productAnalytics';
 import { CommentsSection } from '@/components/comments/CommentsSection';
 import { Loader } from '@/components/ui/Loader';
 import clsx from 'clsx';
@@ -44,6 +45,8 @@ export function AnimeDetails() {
     const [isVisible, setIsVisible] = useState(false);
     const [isRemoveModalOpen, setIsRemoveModalOpen] = useState(false);
     const [isZoomOpen, setIsZoomOpen] = useState(false);
+    const trackedAnimeIdRef = useRef(null);
+    const loadedAnimeId = Number(anime?.id ?? anime?.mal_id);
 
     // Scroll to top whenever the ID changes (e.g. clicking a Relation or Recommendation)
     useEffect(() => {
@@ -54,6 +57,17 @@ export function AnimeDetails() {
         const timer = setTimeout(() => setIsVisible(true), 100);
         return () => clearTimeout(timer);
     }, []);
+
+    useEffect(() => {
+        if (!Number.isSafeInteger(loadedAnimeId) || loadedAnimeId <= 0) return;
+        if (trackedAnimeIdRef.current === loadedAnimeId) return;
+
+        trackedAnimeIdRef.current = loadedAnimeId;
+        void trackProductEvent(PRODUCT_EVENTS.ANIME_OPENED, {
+            anime_id: loadedAnimeId,
+            source: 'direct',
+        });
+    }, [loadedAnimeId]);
 
     const handleRemoveConfirm = async () => {
         if (libraryEntry) {
@@ -306,10 +320,16 @@ export function AnimeDetails() {
                                     episodes={anime.episodesList}
                                     currentEp={currentEp}
                                     totalEp={totalEp}
-                                    onUpdateProgress={(epNum) => {
+                                    onUpdateProgress={async (epNum) => {
                                         if (user) {
-                                            updateProgress(anime.id, epNum, totalEp);
-                                            if (!libraryEntry) addToLibrary(anime, 'watching');
+                                            try {
+                                                if (!libraryEntry) {
+                                                    await addToLibrary(anime, 'watching', { source: 'anime_details' });
+                                                }
+                                                await updateProgress(anime.id, epNum, totalEp, { source: 'anime_details' });
+                                            } catch (error) {
+                                                console.error('Erro ao marcar episódio:', error);
+                                            }
                                         } else {
                                             toast.warning("Faça login para marcar episódios!");
                                         }

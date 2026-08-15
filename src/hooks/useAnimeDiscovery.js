@@ -17,6 +17,7 @@ const transformData = (anime) => {
         images: anime.images,
         banner: anime.banner || null,
         year: anime.year || anime.aired?.prop?.from?.year || currentYear,
+        episodes: anime.episodes || null,
         score: anime.score ?? 'N/A',
         isNew: anime.airing || anime.status === 'Currently Airing' || anime.year >= currentYear - 1,
         genres: genres.slice(0, 3),
@@ -52,6 +53,15 @@ function mapAnimePage(json) {
 }
 
 const fetchPopular = async (signal) => mapAnimePage(await anilistApi.getTopAnime(1, 25, { signal }));
+
+export const popularAnimeQueryOptions = {
+    queryKey: ['popular-anime', 'anilist-v4'],
+    queryFn: ({ signal }) => fetchPopular(signal),
+    staleTime: STALE_TIME_24H,
+    gcTime: STALE_TIME_24H,
+    retry: 2,
+    refetchOnWindowFocus: false,
+};
 
 const fetchSeasonal = async (signal) => mapAnimePage(await anilistApi.getSeasonalAnime(
     getCurrentSeason(),
@@ -105,15 +115,8 @@ function buildFeaturedAnimes(popularAnimes, seasonalAnimes) {
     return featured;
 }
 
-export function useHomeContent() {
-    const popularQuery = useQuery({
-        queryKey: ['popular-anime', 'anilist-v4'],
-        queryFn: ({ signal }) => fetchPopular(signal),
-        staleTime: STALE_TIME_24H,
-        gcTime: STALE_TIME_24H,
-        retry: 2,
-        refetchOnWindowFocus: false,
-    });
+export function useHomeContent({ includeGenreRows = true } = {}) {
+    const popularQuery = useQuery(popularAnimeQueryOptions);
 
     const seasonalQuery = useQuery({
         queryKey: ['seasonal-anime', 'anilist-v4'],
@@ -131,6 +134,7 @@ export function useHomeContent() {
         gcTime: STALE_TIME_24H,
         retry: 2,
         refetchOnWindowFocus: false,
+        enabled: includeGenreRows,
     });
 
     const popularAnimes = popularQuery.data || [];
@@ -143,9 +147,13 @@ export function useHomeContent() {
         popularAnimes,
         seasonalAnimes,
         genreRows: genreRowsQuery.data || {},
-        loading: popularQuery.isLoading || seasonalQuery.isLoading || genreRowsQuery.isLoading,
-        error: popularQuery.error || seasonalQuery.error || genreRowsQuery.error,
-        isRefreshing: popularQuery.isFetching || seasonalQuery.isFetching || genreRowsQuery.isFetching,
-        refetch: () => Promise.all([popularQuery.refetch(), seasonalQuery.refetch(), genreRowsQuery.refetch()]),
+        loading: popularQuery.isLoading || seasonalQuery.isLoading || (includeGenreRows && genreRowsQuery.isLoading),
+        error: popularQuery.error || seasonalQuery.error || (includeGenreRows ? genreRowsQuery.error : null),
+        isRefreshing: popularQuery.isFetching || seasonalQuery.isFetching || (includeGenreRows && genreRowsQuery.isFetching),
+        refetch: () => Promise.all([
+            popularQuery.refetch(),
+            seasonalQuery.refetch(),
+            ...(includeGenreRows ? [genreRowsQuery.refetch()] : []),
+        ]),
     };
 }

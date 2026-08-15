@@ -17,8 +17,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useCompatibility } from '@/hooks/useCompatibility';
 import { notifyProfileView } from '@/services/notificationService';
+import { normalizeProfileSectionOrder } from '@/components/profile/profileSectionOrder';
 
-const DEFAULT_SECTION_ORDER = ['favorites', 'recent', 'heatmap'];
 const CompatibilityModal = lazy(() => import('@/components/profile/CompatibilityModal').then((module) => ({ default: module.CompatibilityModal })));
 
 export function PublicProfile() {
@@ -60,12 +60,12 @@ export function PublicProfile() {
   }, [library, profile?.favoritesOrder]);
 
   const sectionOrder = useMemo(() => {
-    const saved = (profile?.profileSectionOrder || []).filter((id) => DEFAULT_SECTION_ORDER.includes(id));
-    return [...saved, ...DEFAULT_SECTION_ORDER.filter((id) => !saved.includes(id))];
+    return normalizeProfileSectionOrder(profile?.profileSectionOrder);
   }, [profile?.profileSectionOrder]);
 
   const renderSection = (id) => {
     if (id === 'favorites') return <FavoritesWidget animeFavorites={sortedFavorites} characterFavorites={characterFavorites} readOnly />;
+    if (id === 'journey') return <AchievementBadges readOnly publicLibrary={library} publicProfile={profile} />;
     if (id === 'recent') return <ProfileActivity library={library} libraryPath={`/u/${uid}/library`} />;
     if (id === 'heatmap') return <ActivityHeatmap activityLog={profile?.activityLog} />;
     return null;
@@ -73,9 +73,9 @@ export function PublicProfile() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-5 p-4 pb-10 md:p-8">
-        <Skeleton className="h-96 w-full rounded-3xl" />
-        <div className="grid grid-cols-3 gap-3">{[0, 1, 2].map((item) => <Skeleton key={item} className="h-24 rounded-2xl" />)}</div>
+      <div className="mx-auto min-w-0 max-w-7xl space-y-5 overflow-x-clip p-3 pb-10 md:p-8">
+        <Skeleton className="h-80 w-full rounded-3xl sm:h-96" />
+        <div className="grid grid-cols-2 gap-2.5">{[0, 1, 2, 3].map((item) => <Skeleton key={item} className="h-24 rounded-2xl" />)}</div>
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"><Skeleton className="h-96 rounded-2xl" /><Skeleton className="h-72 rounded-2xl" /></div>
       </div>
     );
@@ -96,7 +96,7 @@ export function PublicProfile() {
 
   return (
     <>
-      <div className="mx-auto max-w-7xl space-y-5 p-3 pb-10 md:space-y-7 md:p-8">
+      <div className="mx-auto min-w-0 max-w-7xl space-y-5 overflow-x-clip p-3 pb-10 md:space-y-7 md:p-8">
         <ProfileHeader
           profile={profile}
           readOnly
@@ -112,10 +112,7 @@ export function PublicProfile() {
 
         <ProfileStats library={library} />
 
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-7">
-          <main className="min-w-0 space-y-5 md:space-y-7">{sectionOrder.map((id) => <section key={id}>{renderSection(id)}</section>)}</main>
-          <aside className="lg:sticky lg:top-6"><AchievementBadges readOnly publicLibrary={library} publicProfile={profile} /></aside>
-        </div>
+        <main className="min-w-0 space-y-5 md:space-y-7">{sectionOrder.map((id) => <section key={id} data-profile-section={id} className="min-w-0">{renderSection(id)}</section>)}</main>
       </div>
 
       {isCompatibilityOpen && (

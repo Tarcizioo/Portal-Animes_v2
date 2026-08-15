@@ -98,20 +98,12 @@ export function useComments(animeId, profile = null, animeTitle = '') {
   const deleteComment = async (commentId) => {
     if (!user) return;
 
-    setComments((prev) => prev.filter((comment) => comment.id !== commentId));
-
     try {
       const commentRef = doc(db, 'comments', commentId);
-      setTimeout(async () => {
-        try {
-          await deleteDoc(commentRef);
-        } catch (internalError) {
-          console.error('Firestore Delete Error (Async):', internalError);
-        }
-      }, 50);
+      await deleteDoc(commentRef);
+      setComments((prev) => prev.filter((comment) => comment.id !== commentId));
     } catch (error) {
-      console.error('Erro ao preparar deleção:', error);
-      setLoading(true);
+      console.error('Erro ao deletar comentário:', error);
       throw error;
     }
   };

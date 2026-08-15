@@ -33,7 +33,7 @@ export function Footer() {
                         <ul className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-text-secondary">
                             <li><Link to="/" className="hover:text-primary transition-colors">Início</Link></li>
                             <li><Link to="/catalog" className="hover:text-primary transition-colors">Catálogo</Link></li>
-                            <li><Link to="/seasonal" className="hover:text-primary transition-colors">Temporada</Link></li>
+                            <li><Link to="/discover" className="hover:text-primary transition-colors">Temporada</Link></li>
                             <li><Link to="/characters" className="hover:text-primary transition-colors">Personagens</Link></li>
                             <li><Link to="/people" className="hover:text-primary transition-colors">Top Pessoas</Link></li>
                         </ul>

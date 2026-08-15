@@ -1,178 +1,211 @@
-import { BarChart2, Calendar, Zap, Heart, Theater, Skull, Smile, Wand2, Rocket, Trophy, Sparkles, RefreshCw, WifiOff } from 'lucide-react';
+import { BarChart2, Compass, RefreshCw, Sparkles, WifiOff } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
-import { Hero } from "@/components/home/Hero";
+import { Hero } from '@/components/home/Hero';
+import {
+  ContinueWatching,
+  ContinueWatchingEmpty,
+  ContinueWatchingSkeleton,
+} from '@/components/library/ContinueWatching';
+import { selectContinueWatching } from '@/components/library/selectContinueWatching';
 import { AnimeCarousel } from '@/components/ui/AnimeCarousel';
-import { LazyAnimeCarousel } from '@/components/home/LazyAnimeCarousel';
-
-import { useHomeContent } from '@/hooks/useAnimeDiscovery';
-import { useRecommendations } from '@/hooks/useRecommendations';
-import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
 import { useAuth } from '@/context/AuthContext';
+import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
+import { useHomeContent } from '@/hooks/useAnimeDiscovery';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { SkeletonHero } from '@/components/ui/SkeletonHero';
-import { SkeletonCard } from '@/components/ui/SkeletonCard';
+import { useRecommendations } from '@/hooks/useRecommendations';
 
-const genreCategories = [
-  { id: 'action', title: 'Ação e Adrenalina', icon: Zap, genreId: 1 },
-  { id: 'romance', title: 'Romance e Amor', icon: Heart, genreId: 22 },
-  { id: 'drama', title: 'Drama e Emoção', icon: Theater, genreId: 8 },
-  { id: 'horror', title: 'Terror e Suspense', icon: Skull, genreId: 14 },
-  { id: 'comedy', title: 'Comédia e Diversão', icon: Smile, genreId: 4 },
-  { id: 'fantasy', title: 'Mundo da Fantasia', icon: Wand2, genreId: 10 },
-  { id: 'scifi', title: 'Ficção Científica', icon: Rocket, genreId: 24 },
-  { id: 'sports', title: 'Esportes & Competição', icon: Trophy, genreId: 30 },
-];
-
-const genreNamesById = {
-  1: 'Action',
-  4: 'Comedy',
-  8: 'Drama',
-  10: 'Fantasy',
-  14: 'Horror',
-  22: 'Romance',
-  24: 'Sci-Fi',
-  30: 'Sports',
-};
-
-function uniqueAnimes(animes) {
-  return Array.from(new Map((animes || []).filter((anime) => anime?.id).map((anime) => [anime.id, anime])).values());
+function HomeHeroSkeleton() {
+  return (
+    <div
+      data-testid="home-hero-loading"
+      aria-label="Carregando destaques"
+      aria-busy="true"
+      className="hero-card relative min-h-[20.5rem] w-full animate-pulse overflow-hidden rounded-[1.75rem] bg-bg-secondary sm:min-h-96 sm:rounded-[2rem] md:min-h-[40.625rem] lg:min-h-[44rem]"
+    >
+      <div className="absolute inset-0 bg-bg-tertiary/50" />
+      <div className="absolute inset-x-0 bottom-0 space-y-3 p-5 sm:p-8 lg:p-12">
+        <div className="h-7 w-44 rounded-full bg-bg-secondary" />
+        <div className="h-9 w-3/4 max-w-xl rounded-lg bg-bg-secondary sm:h-14" />
+        <div className="flex gap-2">
+          <div className="h-8 w-20 rounded-full bg-bg-secondary" />
+          <div className="h-8 w-24 rounded-full bg-bg-secondary" />
+        </div>
+        <div className="h-4 w-4/5 max-w-2xl rounded bg-bg-secondary" />
+        <div className="flex gap-2 pt-1">
+          <div className="h-12 flex-1 rounded-xl bg-bg-secondary sm:max-w-44" />
+          <div className="h-12 flex-1 rounded-xl bg-bg-secondary sm:max-w-40" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function buildGenreCarousels(animes, genreRows = {}) {
-  const directRows = {
-    horror: genreRows.horror,
-    scifi: genreRows.scifi,
-    sports: genreRows.sports,
-  };
-
-  return genreCategories.map((category) => {
-    const fallback = animes.filter((anime) => (
-      anime.genreIds?.includes(category.genreId)
-      || anime.genres?.includes(genreNamesById[category.genreId])
-    ));
-    const direct = directRows[category.id] || [];
-
-    return {
-      ...category,
-      animes: uniqueAnimes(direct.length ? [...direct, ...fallback] : fallback).slice(0, 18),
-    };
-  });
+function HomeHeroUnavailable({ isRefreshing, onRetry }) {
+  return (
+    <section
+      data-testid="home-hero-error"
+      className="flex min-h-80 flex-col items-center justify-center rounded-[1.75rem] border border-border-color bg-bg-secondary/70 px-6 py-12 text-center shadow-xl sm:rounded-[2rem] md:min-h-[32rem]"
+      role="alert"
+    >
+      <span className="mb-5 grid h-14 w-14 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-primary" aria-hidden="true">
+        <WifiOff className="h-7 w-7" />
+      </span>
+      <h1 className="text-2xl font-black text-text-primary">Destaques indisponíveis</h1>
+      <p className="mt-3 max-w-md text-sm leading-relaxed text-text-secondary">
+        Sua biblioteca continua disponível. Tente carregar os destaques novamente em alguns instantes.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={isRefreshing}
+        className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 font-bold text-text-on-primary shadow-lg shadow-primary/20 disabled:cursor-wait disabled:opacity-60"
+      >
+        <RefreshCw aria-hidden="true" className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+        {isRefreshing ? 'Tentando novamente...' : 'Tentar novamente'}
+      </button>
+    </section>
+  );
 }
+
+function HomeRailSkeleton({ title }) {
+  return (
+    <section aria-label={`Carregando ${title}`} aria-busy="true" className="space-y-4">
+      <div className="h-8 w-40 animate-pulse rounded-lg bg-bg-tertiary" />
+      <div className="flex gap-2.5 overflow-hidden sm:gap-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="w-[30%] shrink-0 sm:w-[24%] lg:w-[19%]">
+            <div className="aspect-[2/3] animate-pulse rounded-xl bg-bg-tertiary" />
+            <div className="mt-3 h-4 w-4/5 animate-pulse rounded bg-bg-tertiary" />
+            <div className="mt-2 h-3 w-1/2 animate-pulse rounded bg-bg-tertiary/70" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecommendationError({ onRetry, isRetrying }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-border-color bg-bg-secondary/70 p-4 sm:flex-row sm:items-center sm:justify-between" role="alert">
+      <div>
+        <p className="font-bold text-text-primary">Não foi possível montar suas recomendações</p>
+        <p className="mt-1 text-sm text-text-secondary">Você ainda pode explorar os títulos em alta enquanto tentamos novamente.</p>
+      </div>
+      <button
+        type="button"
+        onClick={onRetry}
+        disabled={isRetrying}
+        className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-border-color px-4 text-sm font-bold text-primary hover:border-primary disabled:cursor-wait disabled:opacity-60"
+      >
+        <RefreshCw aria-hidden="true" className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
+        Tentar novamente
+      </button>
+    </div>
+  );
+}
+
 export function Home() {
   const {
     featuredAnimes,
     popularAnimes,
     seasonalAnimes,
-    genreRows,
     loading,
     error,
     isRefreshing,
     refetch,
-  } = useHomeContent();
-
+  } = useHomeContent({ includeGenreRows: false });
   const { user } = useAuth();
-  const { library } = useAnimeLibrary();
-  const { data: recommendations } = useRecommendations(library, { enabled: !loading });
+  const {
+    library,
+    loading: libraryLoading,
+    incrementProgress,
+  } = useAnimeLibrary();
+  const {
+    data: recommendations = [],
+    isLoading: recommendationsLoading,
+    isFetching: recommendationsFetching,
+    error: recommendationsError,
+    refetch: refetchRecommendations,
+  } = useRecommendations(library, {
+    enabled: Boolean(user) && !libraryLoading && !loading,
+  });
 
-  const homeAnimePool = [...popularAnimes, ...seasonalAnimes].filter((anime, index, allAnimes) =>
-    allAnimes.findIndex((item) => item.id === anime.id) === index
-  );
-  const genreCarousels = buildGenreCarousels(homeAnimePool, genreRows);
-  const hasHomeContent = featuredAnimes.length > 0 || popularAnimes.length > 0 || seasonalAnimes.length > 0;
+  const continueWatching = selectContinueWatching(library, 4);
+  const hasDiscoveryContent = featuredAnimes.length > 0 || popularAnimes.length > 0 || seasonalAnimes.length > 0;
+  const heroIsLoading = loading && featuredAnimes.length === 0;
+  const hasPersonalizedRecommendations = Boolean(user) && recommendations.length > 0;
+  const showRecommendationLoading = Boolean(user) && (libraryLoading || recommendationsLoading);
+  const showEditorialFallback = !user || (!showRecommendationLoading && !hasPersonalizedRecommendations);
 
   usePageTitle('Início');
 
-  if (!loading && error && !hasHomeContent) {
-    return (
-      <div className="p-6 lg:p-10">
-        <section className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center rounded-3xl border border-border-color bg-bg-secondary/70 px-6 text-center shadow-xl">
-          <div className="mb-5 rounded-2xl border border-primary/20 bg-primary/10 p-4 text-primary">
-            <WifiOff className="h-8 w-8" />
-          </div>
-          <h1 className="text-2xl font-black text-text-primary">Os destaques estao indisponiveis</h1>
-          <p className="mt-3 max-w-md text-sm leading-relaxed text-text-secondary">
-            A fonte de animes pode estar instavel ou em pausa. Sua biblioteca continua disponivel enquanto tentamos carregar novamente.
-          </p>
-          <button
-            type="button"
-            onClick={refetch}
-            disabled={isRefreshing}
-            className="mt-7 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 font-bold text-white shadow-lg shadow-primary/20 transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Tentando novamente...' : 'Tentar novamente'}
-          </button>
-        </section>
-      </div>
-    );
-  }
+  const handleIncrementProgress = (animeId, currentEpisode, totalEpisodes) => (
+    incrementProgress(animeId, currentEpisode, totalEpisodes, { source: 'home_continue_watching' })
+  );
 
   return (
-
-    <div className="space-y-12 px-6 pb-6 pt-4 lg:px-10 lg:pb-10 lg:pt-6">
-      {loading ? (
-        <>
-          <SkeletonHero />
-          <div className="space-y-4">
-            <div className="h-8 w-48 bg-bg-tertiary rounded animate-pulse" />
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
-              {[...Array(5)].map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="h-8 w-64 bg-bg-tertiary rounded animate-pulse" />
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-5">
-              {[...Array(5)].map((_, i) => (
-                <SkeletonCard key={i + 10} />
-              ))}
-            </div>
-          </div>
-        </>
+    <div className="mx-auto max-w-[1600px] space-y-6 px-4 pb-6 pt-2 sm:space-y-8 sm:px-6 sm:pt-4 md:space-y-10 lg:px-10 lg:pb-10 lg:pt-6">
+      {heroIsLoading ? (
+        <HomeHeroSkeleton />
+      ) : featuredAnimes.length > 0 ? (
+        <Hero animes={featuredAnimes} />
       ) : (
-        <>
-          <Hero animes={featuredAnimes || []} />
+        <HomeHeroUnavailable isRefreshing={isRefreshing} onRetry={refetch} />
+      )}
 
-          {/* Recommendations - only for logged in users */}
-          {user && recommendations?.length > 0 && (
-            <AnimeCarousel
-              id="recommendations"
-              title="Recomendados Para Você"
-              icon={Sparkles}
-              animes={recommendations}
-            />
-          )}
-
-          <AnimeCarousel
-            id="popular"
-            title="Animes Populares"
-            icon={BarChart2}
-            animes={popularAnimes}
+      {user && (
+        libraryLoading ? (
+          <ContinueWatchingSkeleton variant="home" />
+        ) : continueWatching.length > 0 ? (
+          <ContinueWatching
+            animes={continueWatching}
+            onIncrement={handleIncrementProgress}
+            variant="home"
+            viewAllHref="/library"
           />
+        ) : (
+          <ContinueWatchingEmpty />
+        )
+      )}
 
-          <AnimeCarousel
-            id="seasonal"
-            title="Lançamentos da Temporada"
-            icon={Calendar}
-            animes={seasonalAnimes}
-          />
+      {showRecommendationLoading && <HomeRailSkeleton title="Para você" />}
 
-          {/* --- CAROUSEIS (Lazy Loaded) --- */}
-          {genreCarousels.map((category) => (
-            <LazyAnimeCarousel
-              key={category.id}
-              id={category.id}
-              title={category.title}
-              icon={category.icon}
-              animes={category.animes}
-            />
-          ))}
-        </>
+      {user && recommendationsError && !recommendationsLoading && (
+        <RecommendationError onRetry={refetchRecommendations} isRetrying={recommendationsFetching} />
+      )}
+
+      {hasPersonalizedRecommendations && (
+        <AnimeCarousel
+          id="recommendations"
+          title="Para você"
+          icon={Sparkles}
+          animes={recommendations}
+          variant="home"
+          viewAllHref="/discover"
+        />
+      )}
+
+      {showEditorialFallback && popularAnimes.length > 0 && (
+        <AnimeCarousel
+          id="popular"
+          title="Em alta"
+          icon={BarChart2}
+          animes={popularAnimes}
+          variant="home"
+          viewAllHref="/catalog?orderBy=popularity"
+        />
+      )}
+
+      {!heroIsLoading && error && !hasDiscoveryContent && (
+        <Link
+          to="/discover"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-border-color bg-bg-secondary px-4 font-bold text-primary"
+        >
+          <Compass aria-hidden="true" className="h-5 w-5" />
+          Abrir Descobrir
+        </Link>
       )}
     </div>
-
   );
 }
-

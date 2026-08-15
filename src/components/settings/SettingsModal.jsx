@@ -15,6 +15,7 @@ import {
     Loader2, CheckCircle2, AlertCircle, Settings, Bell, Eye, Heart, UserPlus,
     ChevronRight, LibraryBig, UserRoundCog, Gauge, Play, Accessibility,
     EyeOff, RotateCcw, LayoutGrid, BadgeCheck, Mail, ShieldCheck,
+    ArrowLeft, HardDrive, Cloud,
 } from 'lucide-react';
 
 // ── Theme data ────────────────────────────────────────────────────────────────
@@ -36,6 +37,62 @@ const TABS = [
     { id: 'notifications', label: 'Notificações', description: 'Alertas e preferências', icon: Bell },
     { id: 'account', label: 'Minha conta', description: 'Segurança e dados', icon: UserRoundCog },
 ];
+
+const getSafeInitialTab = (initialTab) => (
+    TABS.some((tab) => tab.id === initialTab) ? initialTab : 'appearance'
+);
+
+const FOCUSABLE_SELECTOR = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled]):not([type="hidden"])',
+    'textarea:not([disabled])',
+    'select:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+].join(',');
+
+function useDialogFocus(isOpen, dialogRef, initialFocusRef) {
+    useEffect(() => {
+        if (!isOpen || typeof document === 'undefined') return undefined;
+
+        const previouslyFocused = document.activeElement;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const scheduleFocus = window.requestAnimationFrame?.bind(window) || window.setTimeout.bind(window);
+        const cancelFocus = window.cancelAnimationFrame?.bind(window) || window.clearTimeout.bind(window);
+        const focusFrame = scheduleFocus(() => {
+            (initialFocusRef.current || dialogRef.current)?.focus();
+        });
+
+        const keepFocusInside = (event) => {
+            if (event.key !== 'Tab' || !dialogRef.current) return;
+            const focusable = [...dialogRef.current.querySelectorAll(FOCUSABLE_SELECTOR)]
+                .filter((element) => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true');
+            if (!focusable.length) {
+                event.preventDefault();
+                dialogRef.current.focus();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener('keydown', keepFocusInside);
+        return () => {
+            cancelFocus(focusFrame);
+            document.removeEventListener('keydown', keepFocusInside);
+            document.body.style.overflow = previousOverflow;
+            previouslyFocused?.focus?.();
+        };
+    }, [dialogRef, initialFocusRef, isOpen]);
+}
 
 // ── Tab button ────────────────────────────────────────────────────────────────
 function TabBtn({ tab, active, onClick }) {
@@ -109,7 +166,7 @@ function AppearanceTab({ theme, setTheme }) {
                         <h3 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-text-secondary">
                             <Monitor className="h-4 w-4" /> Temas disponíveis
                         </h3>
-                        <p className="mt-1 text-xs text-text-secondary/70">A mudança é aplicada e salva automaticamente.</p>
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-text-secondary/70"><HardDrive className="h-3.5 w-3.5" /> Aplicado e salvo neste dispositivo.</p>
                     </div>
                     <span className="rounded-full border border-border-color bg-bg-tertiary/70 px-3 py-1 text-[10px] font-bold text-text-secondary">{themes.length} opções</span>
                 </div>
@@ -171,7 +228,7 @@ function ExperienceTab({ preferences, updatePreference, resetPreferences }) {
                     </span>
                     <h3 className="mt-3 text-xl font-black tracking-tight text-text-primary">Uma interface no seu ritmo.</h3>
                     <p className="mt-2 text-sm leading-relaxed text-text-secondary">
-                        Estas preferências funcionam imediatamente neste navegador e podem ser alteradas a qualquer momento.
+                        Estas preferências são salvas neste dispositivo, funcionam imediatamente e podem ser alteradas a qualquer momento.
                     </p>
                 </div>
             </div>
@@ -214,7 +271,7 @@ function ExperienceTab({ preferences, updatePreference, resetPreferences }) {
                                         key={option.value}
                                         onClick={() => updatePreference('carouselDensity', option.value)}
                                         aria-pressed={preferences.carouselDensity === option.value}
-                                        className={`rounded-lg border px-2.5 py-2 text-xs font-bold transition-colors ${preferences.carouselDensity === option.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-color bg-bg-secondary text-text-secondary hover:text-text-primary'}`}
+                                        className={`min-h-11 rounded-lg border px-2.5 py-2 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${preferences.carouselDensity === option.value ? 'border-primary bg-primary/10 text-primary' : 'border-border-color bg-bg-secondary text-text-secondary hover:text-text-primary'}`}
                                     >
                                         {option.label}
                                     </button>
@@ -228,7 +285,7 @@ function ExperienceTab({ preferences, updatePreference, resetPreferences }) {
             <button
                 type="button"
                 onClick={resetPreferences}
-                className="inline-flex items-center gap-2 rounded-xl border border-border-color bg-bg-tertiary/55 px-4 py-2.5 text-xs font-bold text-text-secondary transition-colors hover:border-primary/35 hover:text-text-primary"
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-color bg-bg-tertiary/55 px-4 py-2.5 text-xs font-bold text-text-secondary transition-colors hover:border-primary/35 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
                 <RotateCcw className="h-4 w-4" /> Restaurar preferências de experiência
             </button>
@@ -236,7 +293,7 @@ function ExperienceTab({ preferences, updatePreference, resetPreferences }) {
     );
 }
 // Library/Backup tab
-function LibraryTab({ library }) {
+function LibraryTab({ library, isSignedIn }) {
     const { exportJSON, exportCSV, parseJSON, parseMAL, commitImport } = useLibraryBackup(library);
 
     const [preview, setPreview]       = useState(null);
@@ -278,6 +335,20 @@ function LibraryTab({ library }) {
 
     return (
         <div className="space-y-6">
+            <div className="flex items-start gap-3 rounded-2xl border border-border-color bg-bg-primary/45 p-4">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                    {isSignedIn ? <Cloud className="h-5 w-5" /> : <HardDrive className="h-5 w-5" />}
+                </span>
+                <div>
+                    <p className="text-sm font-black text-text-primary">{isSignedIn ? 'Biblioteca sincronizada' : 'Biblioteca neste dispositivo'}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">
+                        {isSignedIn
+                            ? 'Sua coleção fica vinculada à conta. Exportações e arquivos escolhidos permanecem somente no seu dispositivo.'
+                            : 'Entre na sua conta para sincronizar. Exportações e importações são processadas localmente.'}
+                    </p>
+                </div>
+            </div>
+
             {/* Export */}
             <div>
                 <h3 className="text-xs font-bold text-text-secondary uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -322,7 +393,7 @@ function LibraryTab({ library }) {
                     <div className={`flex items-center gap-2 p-3 rounded-xl text-sm font-semibold mb-3 ${result.success ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
                         {result.success ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                         {result.message}
-                        <button onClick={reset} className="ml-auto text-xs underline opacity-70 hover:opacity-100 focus:outline-none">Nova importação</button>
+                        <button type="button" onClick={reset} className="ml-auto min-h-11 rounded-lg px-2 text-xs underline opacity-70 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-button-accent">Nova importação</button>
                     </div>
                 )}
                 {parseError && (
@@ -336,16 +407,18 @@ function LibraryTab({ library }) {
                         onDragOver={e => { e.preventDefault(); setDragging(true); }}
                         onDragLeave={() => setDragging(false)}
                         onDrop={e => { e.preventDefault(); setDragging(false); handleFile(e.dataTransfer.files[0]); }}
-                        onClick={() => fileRef.current?.click()}
-                        className={`flex flex-col items-center justify-center gap-3 p-8 rounded-2xl border-2 border-dashed cursor-pointer transition-all ${dragging ? 'border-button-accent bg-button-accent/10 scale-[1.01]' : 'border-border-color hover:border-button-accent/50 hover:bg-bg-tertiary/40'}`}
+                        className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-6 transition-all ${dragging ? 'scale-[1.01] border-button-accent bg-button-accent/10' : 'border-border-color hover:border-button-accent/50 hover:bg-bg-tertiary/40'}`}
                     >
                         <div className="p-3 bg-bg-tertiary rounded-2xl">
                             <FileUp className="w-7 h-7 text-button-accent" />
                         </div>
                         <div className="text-center">
-                            <p className="font-bold text-text-primary text-sm">Arraste ou clique para selecionar</p>
+                            <p className="font-bold text-text-primary text-sm">Escolha seu arquivo de biblioteca</p>
                             <p className="text-xs text-text-secondary mt-1">.json (nosso formato) · .xml (MyAnimeList)</p>
                         </div>
+                        <button type="button" onClick={() => fileRef.current?.click()} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-button-accent px-5 text-sm font-black text-text-on-primary shadow-lg shadow-button-accent/20 transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-button-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary sm:w-auto">
+                            <FileUp className="h-4 w-4" /> Selecionar arquivo
+                        </button>
                         <input ref={fileRef} type="file" accept=".json,.xml" className="hidden" onChange={e => handleFile(e.target.files[0])} />
                     </div>
                 )}
@@ -370,8 +443,8 @@ function LibraryTab({ library }) {
                             Substituir animes já existentes
                         </label>
                         <div className="flex gap-2">
-                            <button onClick={reset} className="flex-1 py-2 rounded-xl border border-border-color text-sm text-text-secondary hover:bg-bg-tertiary focus:outline-none">Cancelar</button>
-                            <button onClick={handleImport} className="flex-1 py-2 rounded-xl bg-button-accent text-text-on-primary text-sm font-bold hover:opacity-90 focus:outline-none">
+                            <button type="button" onClick={reset} className="min-h-11 flex-1 rounded-xl border border-border-color py-2 text-sm text-text-secondary hover:bg-bg-tertiary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-button-accent">Cancelar</button>
+                            <button type="button" onClick={handleImport} className="min-h-11 flex-1 rounded-xl bg-button-accent py-2 text-sm font-bold text-text-on-primary hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-button-accent">
                                 Importar {preview.count} animes
                             </button>
                         </div>
@@ -408,21 +481,17 @@ function PrefToggle({ icon: Icon, label, description, checked, onChange, disable
                 </div>
             </div>
             <button
+                type="button"
                 onClick={() => !disabled && onChange(!checked)}
                 disabled={disabled}
                 aria-checked={checked}
+                aria-label={`${checked ? 'Desativar' : 'Ativar'} ${label}`}
                 role="switch"
-                className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none ${
-                    disabled ? 'opacity-40 cursor-not-allowed' :
-                    checked  ? 'bg-button-accent cursor-pointer' :
-                               'bg-bg-tertiary border border-border-color cursor-pointer'
-                }`}
+                className="relative -my-2 grid h-11 w-12 flex-shrink-0 place-items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-40"
             >
-                <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-                        checked ? 'translate-x-5' : 'translate-x-0'
-                    }`}
-                />
+                <span aria-hidden="true" className={`relative block h-6 w-11 rounded-full transition-colors duration-200 ${checked ? 'bg-button-accent' : 'border border-border-color bg-bg-tertiary'}`}>
+                    <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`} />
+                </span>
             </button>
         </div>
     );
@@ -463,7 +532,7 @@ function NotificationsTab({ user }) {
                         type="button"
                         onClick={() => toggleAll(!allEnabled)}
                         disabled={loading}
-                        className="rounded-xl border border-primary/25 bg-bg-secondary/75 px-4 py-2.5 text-xs font-black text-primary transition-colors hover:bg-primary hover:text-white disabled:opacity-50"
+                        className="min-h-11 rounded-xl border border-primary/25 bg-bg-secondary/75 px-4 py-2.5 text-xs font-black text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50"
                     >
                         {allEnabled ? 'Pausar todos' : 'Ativar todos'}
                     </button>
@@ -510,16 +579,23 @@ function NotificationsTab({ user }) {
 function AccountTab({ user, profile, deleteAccount, onClose }) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [confirmText, setConfirmText] = useState('');
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [deleteError, setDeleteError] = useState('');
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const usesPassword = user?.providerData?.some((provider) => provider.providerId === 'password') || false;
 
     const handleDelete = async () => {
-        if (confirmText !== 'DELETAR') return;
+        if (confirmText !== 'DELETAR' || (usesPassword && !currentPassword)) return;
         setIsDeleting(true);
+        setDeleteError('');
         try {
-            await deleteAccount();
+            await deleteAccount(currentPassword);
             onClose();
-        } catch {
-            alert('Não foi possível excluir a conta. Entre novamente por segurança e tente outra vez.');
+        } catch (error) {
+            const invalidPassword = ['auth/invalid-credential', 'auth/wrong-password'].includes(error?.code);
+            setDeleteError(invalidPassword
+                ? 'A senha informada está incorreta.'
+                : 'Não foi possível excluir a conta. Confirme sua identidade e tente novamente.');
         } finally {
             setIsDeleting(false);
         }
@@ -533,8 +609,11 @@ function AccountTab({ user, profile, deleteAccount, onClose }) {
 
     const displayName = profile?.displayName || user.displayName || 'Usuário';
     const sitePhoto = profile?.photoURL || null;
-    const providerId = user.providerData?.[0]?.providerId;
-    const providerName = providerId === 'google.com' ? 'Google' : 'E-mail';
+    const providerIds = user.providerData?.map((provider) => provider.providerId) || [];
+    const providerName = [
+        providerIds.includes('google.com') ? 'Google' : null,
+        providerIds.includes('password') ? 'E-mail' : null,
+    ].filter(Boolean).join(' + ') || 'Não informado';
     const createdAt = user.metadata?.creationTime
         ? new Date(user.metadata.creationTime).toLocaleDateString('pt-BR')
         : 'Não informado';
@@ -587,7 +666,7 @@ function AccountTab({ user, profile, deleteAccount, onClose }) {
                         <button
                             type="button"
                             onClick={() => setShowDeleteConfirm(true)}
-                            className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500 hover:text-white"
+                            className="flex min-h-11 items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-sm font-medium text-red-500 transition-colors hover:bg-red-500 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                         >
                             <Trash2 className="h-4 w-4" /> Excluir minha conta
                         </button>
@@ -601,22 +680,49 @@ function AccountTab({ user, profile, deleteAccount, onClose }) {
                                 type="text"
                                 value={confirmText}
                                 onChange={(event) => setConfirmText(event.target.value)}
-                                className="w-full rounded-lg border border-red-500/30 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-red-500 focus:outline-none"
+                                className="min-h-11 w-full rounded-lg border border-red-500/30 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
                                 placeholder="DELETAR"
                             />
+                            {usesPassword ? (
+                                <div>
+                                    <label className="mb-1.5 block text-sm text-text-secondary" htmlFor="delete-account-password">
+                                        Confirme sua senha atual:
+                                    </label>
+                                    <input
+                                        id="delete-account-password"
+                                        type="password"
+                                        autoComplete="current-password"
+                                        value={currentPassword}
+                                        onChange={(event) => setCurrentPassword(event.target.value)}
+                                        disabled={isDeleting}
+                                        className="min-h-11 w-full rounded-lg border border-red-500/30 bg-bg-primary px-3 py-2 text-sm text-text-primary focus:border-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/40"
+                                        placeholder="Sua senha"
+                                    />
+                                </div>
+                            ) : (
+                                <p className="text-xs leading-relaxed text-text-secondary">
+                                    O Google abrirá uma janela para confirmar sua identidade antes da exclusão.
+                                </p>
+                            )}
+                            {deleteError && <p role="alert" className="text-xs font-semibold text-red-400">{deleteError}</p>}
                             <div className="flex gap-2">
                                 <button
                                     type="button"
                                     onClick={handleDelete}
-                                    disabled={confirmText !== 'DELETAR' || isDeleting}
-                                    className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    disabled={confirmText !== 'DELETAR' || (usesPassword && !currentPassword) || isDeleting}
+                                    className="min-h-11 flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     {isDeleting ? 'Apagando...' : 'Confirmar exclusão'}
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => { setShowDeleteConfirm(false); setConfirmText(''); }}
-                                    className="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary"
+                                    onClick={() => {
+                                        setShowDeleteConfirm(false);
+                                        setConfirmText('');
+                                        setCurrentPassword('');
+                                        setDeleteError('');
+                                    }}
+                                    className="min-h-11 rounded-lg px-4 py-2 text-sm font-medium text-text-secondary hover:bg-bg-primary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 >
                                     Cancelar
                                 </button>
@@ -629,28 +735,27 @@ function AccountTab({ user, profile, deleteAccount, onClose }) {
     );
 }
 // ── Main Modal ────────────────────────────────────────────────────────────────
-export function SettingsModal({ isOpen, onClose }) {
+function SettingsModalContent({ isOpen, onClose, initialTab }) {
     useModalClose(isOpen, onClose);
     const { theme, setTheme } = useTheme();
     const { deleteAccount, user } = useAuth();
     const { profile } = useUserProfile();
     const { preferences, updatePreference, resetPreferences } = useAppPreferences();
     const { library } = useAnimeLibrary();
-    const [activeTab, setActiveTab] = useState('appearance');
+    const [activeTab, setActiveTab] = useState(initialTab);
+    const dialogRef = useRef(null);
+    const backButtonRef = useRef(null);
     const activeSection = TABS.find((tab) => tab.id === activeTab) || TABS[0];
     const ActiveIcon = activeSection.icon;
     const profileName = profile?.displayName || user?.displayName || 'Visitante';
     const profilePhoto = profile?.photoURL || null;
+    const isLocalSection = activeTab === 'appearance' || activeTab === 'experience';
+    const scopeLabel = isLocalSection
+        ? 'Neste dispositivo'
+        : user ? 'Sincronizado com sua conta' : 'Disponível após entrar';
+    const ScopeIcon = isLocalSection ? HardDrive : Cloud;
 
-    useEffect(() => {
-        if (!isOpen) return undefined;
-
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-        return () => {
-            document.body.style.overflow = previousOverflow;
-        };
-    }, [isOpen]);
+    useDialogFocus(isOpen, dialogRef, backButtonRef);
 
     if (typeof document === 'undefined') return null;
 
@@ -658,7 +763,7 @@ export function SettingsModal({ isOpen, onClose }) {
         <AnimatePresence>
             {isOpen && (
                 <motion.div
-                    className="fixed inset-0 z-[120] flex items-end justify-center bg-black/80 backdrop-blur-md sm:items-center sm:p-4"
+                    className="fixed inset-0 z-[150] flex items-end justify-center bg-black/80 backdrop-blur-md md:items-center md:p-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
@@ -668,10 +773,12 @@ export function SettingsModal({ isOpen, onClose }) {
                     <div className="pointer-events-none absolute bottom-[5%] right-[10%] h-60 w-60 rounded-full bg-cyan-400/5 blur-[90px]" />
 
                     <motion.section
+                        ref={dialogRef}
                         role="dialog"
                         aria-modal="true"
                         aria-label="Configurações do PortalAnimes"
-                        className="relative flex h-[94dvh] max-h-[820px] w-full max-w-6xl flex-col overflow-hidden rounded-t-[1.75rem] border border-border-color bg-bg-secondary shadow-[0_35px_120px_rgba(0,0,0,0.7)] sm:rounded-[2rem] md:flex-row"
+                        tabIndex={-1}
+                        className="relative flex h-[100dvh] w-full max-w-6xl flex-col overflow-hidden border-0 bg-bg-secondary shadow-[0_35px_120px_rgba(0,0,0,0.7)] md:h-[94dvh] md:max-h-[820px] md:flex-row md:rounded-[2rem] md:border md:border-border-color"
                         initial={{ opacity: 0, y: 34, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 24, scale: 0.98 }}
@@ -679,27 +786,29 @@ export function SettingsModal({ isOpen, onClose }) {
                         onClick={(event) => event.stopPropagation()}
                     >
                         <aside className="flex flex-shrink-0 flex-col border-b border-border-color bg-bg-primary/55 md:w-[280px] md:border-b-0 md:border-r">
-                            <div className="flex items-center justify-between px-4 pb-2 pt-4 md:px-5 md:pb-5 md:pt-6">
-                                <div className="flex items-center gap-3">
-                                    <span className="grid h-10 w-10 place-items-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20">
+                            <div className="flex items-center gap-3 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] md:px-5 md:pb-5 md:pt-6">
+                                <button
+                                    ref={backButtonRef}
+                                    type="button"
+                                    onClick={onClose}
+                                    aria-label="Voltar e fechar configurações"
+                                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-border-color bg-bg-tertiary text-text-secondary transition-colors hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary md:hidden"
+                                >
+                                    <ArrowLeft className="h-5 w-5" />
+                                </button>
+                                <div className="flex min-w-0 flex-1 items-center gap-3">
+                                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20">
                                         <Settings className="h-4.5 w-4.5" />
                                     </span>
-                                    <div>
+                                    <div className="min-w-0">
                                         <h2 className="text-sm font-black tracking-tight text-text-primary sm:text-base">Configurações</h2>
                                         <p className="hidden text-[10px] font-semibold text-text-secondary md:block">Central da sua experiência</p>
                                     </div>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={onClose}
-                                    aria-label="Fechar configurações"
-                                    className="grid h-9 w-9 place-items-center rounded-full border border-border-color bg-bg-tertiary p-0 text-text-secondary hover:rotate-90 hover:text-text-primary md:hidden"
-                                >
-                                    <X className="h-4 w-4" />
-                                </button>
+                                <span className="shrink-0 text-[10px] font-bold text-text-secondary md:hidden">{TABS.findIndex((tab) => tab.id === activeTab) + 1} de {TABS.length}</span>
                             </div>
 
-                            <nav className="custom-scrollbar flex gap-2 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-x-hidden md:px-4 md:pb-4" aria-label="Seções de configurações">
+                            <nav className="no-scrollbar flex gap-2 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-x-hidden md:px-4 md:pb-4" aria-label="Seções de configurações">
                                 <p className="mb-1 hidden px-3 text-[10px] font-black uppercase tracking-[0.18em] text-text-secondary/65 md:block">Preferências</p>
                                 {TABS.map((tab) => (
                                     <TabBtn
@@ -726,7 +835,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                 </div>
                                 <div className="min-w-0">
                                     <p className="truncate text-xs font-black text-text-primary">{profileName}</p>
-                                    <p className="mt-0.5 truncate text-[10px] font-semibold text-text-secondary">{user ? 'Preferências sincronizadas' : 'Preferências locais'}</p>
+                                    <p className="mt-0.5 truncate text-[10px] font-semibold text-text-secondary">Tema e experiência neste dispositivo</p>
                                 </div>
                             </div>
                         </aside>
@@ -748,7 +857,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                         type="button"
                                         onClick={onClose}
                                         aria-label="Fechar configurações"
-                                        className="grid h-10 w-10 place-items-center rounded-full border border-border-color bg-bg-tertiary/70 p-0 text-text-secondary transition-all hover:rotate-90 hover:border-primary/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                        className="grid h-11 w-11 place-items-center rounded-full border border-border-color bg-bg-tertiary/70 p-0 text-text-secondary transition-all hover:rotate-90 hover:border-primary/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                     >
                                         <X className="h-4 w-4" />
                                     </button>
@@ -756,12 +865,17 @@ export function SettingsModal({ isOpen, onClose }) {
                             </header>
 
                             <div className="border-b border-border-color px-5 py-3 md:hidden">
-                                <p className="flex items-center gap-2 text-sm font-black text-text-primary">
-                                    <ActiveIcon className="h-4 w-4 text-primary" /> {activeSection.label}
-                                </p>
+                                <div className="flex items-center justify-between gap-3">
+                                    <p className="flex min-w-0 items-center gap-2 text-sm font-black text-text-primary">
+                                        <ActiveIcon className="h-4 w-4 shrink-0 text-primary" /> <span className="truncate">{activeSection.label}</span>
+                                    </p>
+                                    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border-color bg-bg-tertiary/70 px-2.5 py-1 text-[9px] font-black text-text-secondary">
+                                        <ScopeIcon className="h-3 w-3" /> {scopeLabel}
+                                    </span>
+                                </div>
                             </div>
 
-                            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7 sm:py-7 lg:px-10">
+                            <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 [scroll-padding-bottom:calc(5rem+env(safe-area-inset-bottom))] sm:px-7 sm:py-7 lg:px-10">
                                 <AnimatePresence mode="wait">
                                     <motion.div
                                         key={activeTab}
@@ -773,7 +887,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                     >
                                         {activeTab === 'appearance' && <AppearanceTab theme={theme} setTheme={setTheme} />}
                                         {activeTab === 'experience' && <ExperienceTab preferences={preferences} updatePreference={updatePreference} resetPreferences={resetPreferences} />}
-                                        {activeTab === 'library' && <LibraryTab library={library} />}
+                                        {activeTab === 'library' && <LibraryTab library={library} isSignedIn={Boolean(user)} />}
                                         {activeTab === 'notifications' && <NotificationsTab user={user} />}
                                         {activeTab === 'account' && <AccountTab user={user} profile={profile} deleteAccount={deleteAccount} onClose={onClose} />}
                                     </motion.div>
@@ -785,5 +899,18 @@ export function SettingsModal({ isOpen, onClose }) {
             )}
         </AnimatePresence>,
         document.body,
+    );
+}
+
+export function SettingsModal({ isOpen, onClose, initialTab = 'appearance' }) {
+    const safeInitialTab = getSafeInitialTab(initialTab);
+
+    return (
+        <SettingsModalContent
+            key={`${isOpen ? 'open' : 'closed'}:${safeInitialTab}`}
+            isOpen={isOpen}
+            onClose={onClose}
+            initialTab={safeInitialTab}
+        />
     );
 }

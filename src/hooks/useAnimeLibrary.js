@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { db } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { APP_CONFIG } from '@/constants/app';
 import { useToast } from '@/context/ToastContext';
 import { anilistApi } from '@/services/anilistApi';
+import { PRODUCT_EVENTS, trackProductEvent } from '@/services/productAnalytics';
 import {
     collection,
     query,
@@ -15,6 +16,7 @@ import {
     serverTimestamp,
     getDoc,
     increment,
+    runTransaction,
 } from 'firebase/firestore';
 
 // Returns today as "YYYY-MM-DD" in local time
@@ -23,19 +25,32 @@ const toDateKey = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+const getEventSource = (options) => options?.source || 'unknown';
+
 export function useAnimeLibrary() {
     const { user } = useAuth();
     const userId = user?.uid || null;
     const { toast } = useToast(); // Use Toast
-    const [library, setLibrary] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [subscriptionVersion, setSubscriptionVersion] = useState(0);
+    const [subscriptionState, setSubscriptionState] = useState({
+        uid: null,
+        version: 0,
+        library: [],
+        loading: true,
+        error: null,
+    });
 
     // 1. Escutar Mudanças em Tempo Real
     useEffect(() => {
         if (!userId) {
             const resetTimer = setTimeout(() => {
-                setLibrary([]);
-                setLoading(false);
+                setSubscriptionState({
+                    uid: null,
+                    version: subscriptionVersion,
+                    library: [],
+                    loading: false,
+                    error: null,
+                });
             }, 0);
             return () => clearTimeout(resetTimer);
         }
@@ -48,15 +63,38 @@ export function useAnimeLibrary() {
                 id: doc.id, // ID é sempre String no Firestore
                 ...doc.data()
             }));
-            setLibrary(animeList);
-            setLoading(false);
+            setSubscriptionState({
+                uid: userId,
+                version: subscriptionVersion,
+                library: animeList,
+                loading: false,
+                error: null,
+            });
         }, (error) => {
             console.error("Erro ao buscar biblioteca:", error);
-            // toast.error("Erro ao carregar biblioteca.", "Erro de Conexão"); // Optional: might be spammy on load
-            setLoading(false);
+            setSubscriptionState((current) => ({
+                uid: userId,
+                version: subscriptionVersion,
+                library: current.uid === userId && current.version === subscriptionVersion
+                    ? current.library
+                    : [],
+                loading: false,
+                error,
+            }));
         });
 
         return () => unsubscribe();
+    }, [subscriptionVersion, userId]);
+
+    const isCurrentSubscription = subscriptionState.uid === userId
+        && subscriptionState.version === subscriptionVersion;
+    const library = userId && isCurrentSubscription ? subscriptionState.library : [];
+    const loading = Boolean(userId) && (!isCurrentSubscription || subscriptionState.loading);
+    const error = userId && isCurrentSubscription ? subscriptionState.error : null;
+
+    const retry = useCallback(() => {
+        if (!userId) return;
+        setSubscriptionVersion((current) => current + 1);
     }, [userId]);
 
     // Helper para Mapeamento Seguro
@@ -121,7 +159,7 @@ export function useAnimeLibrary() {
     };
 
     // 2. Adicionar Anime (ou Atualizar)
-    const addToLibrary = async (anime, status = 'plan_to_watch') => {
+    const addToLibrary = async (anime, status = 'plan_to_watch', options = { source: 'unknown' }) => {
         if (!user) {
             toast.warning("Faça login para adicionar à biblioteca.", "Login Necessário");
             return;
@@ -142,10 +180,19 @@ export function useAnimeLibrary() {
             const existingData = exists ? docSnap.data() : {};
 
             const animeData = mapAnimeData(anime, existingData, status);
+            if (options.initialFavorite === true) animeData.isFavorite = true;
 
             await setDoc(animeRef, animeData, { merge: true });
 
+
             if (!exists) {
+                void trackProductEvent(PRODUCT_EVENTS.LIBRARY_UPDATED, {
+                    action: 'add',
+                    anime_id: Number(animeId),
+                    status,
+                    source: getEventSource(options),
+                });
+
                 toast.success("Anime adicionado à biblioteca!", "Sucesso");
             } else {
                 // toast.info("Informações do anime atualizadas.", "Atualizado"); // Maybe too frequent
@@ -159,7 +206,7 @@ export function useAnimeLibrary() {
     };
 
     // 3. Atualizar Progresso
-    const updateProgress = async (animeId, newEp, totalEp) => {
+    const updateProgress = async (animeId, newEp, totalEp, options = { source: 'unknown' }) => {
         if (!user) return;
 
         // Validações
@@ -169,44 +216,58 @@ export function useAnimeLibrary() {
         try {
             const animeRef = doc(db, 'users', user.uid, APP_CONFIG.LIBRARY.COLLECTION_NAME, String(animeId));
 
-            // Calcular quantos eps foram assistidos agora
-            const snap = await getDoc(animeRef);
-            const oldEp = snap.exists() ? (snap.data().currentEp || 0) : 0;
-            const epsWatched = newEp - oldEp;
+            const { previousEpisode } = await runTransaction(db, async (transaction) => {
+                const snap = await transaction.get(animeRef);
+                const oldEp = snap.exists() ? (snap.data().currentEp || 0) : 0;
+                const epsWatched = newEp - oldEp;
+                const progressTimestamp = serverTimestamp();
+                const updates = {
+                    currentEp: newEp,
+                    lastUpdated: progressTimestamp,
+                    lastProgressAt: progressTimestamp,
+                };
 
-            const updates = {
-                currentEp: newEp,
-                lastUpdated: serverTimestamp()
-            };
+                if (totalEp > 0 && newEp === totalEp) {
+                    updates.status = 'completed';
+                }
+
+                transaction.update(animeRef, updates);
+
+                if (epsWatched > 0) {
+                    const dateKey = toDateKey();
+                    const userRef = doc(db, 'users', user.uid);
+                    transaction.update(userRef, {
+                        [`activityLog.${dateKey}`]: increment(epsWatched)
+                    });
+                }
+
+                return { previousEpisode: oldEp };
+            });
 
             if (totalEp > 0 && newEp === totalEp) {
-                updates.status = 'completed';
-                toast.success("Anime concluído! 🎉", "Parabéns");
+                toast.success("Anime concluído!", "Parabéns");
             }
 
-            // Atualizar progresso do anime
-            await updateDoc(animeRef, updates);
-
-            // Registrar atividade no heatmap (apenas se assistiu eps novos)
-            if (epsWatched > 0) {
-                const dateKey = toDateKey();
-                const userRef = doc(db, 'users', user.uid);
-                await updateDoc(userRef, {
-                    [`activityLog.${dateKey}`]: increment(epsWatched)
-                });
-            }
+            void trackProductEvent(PRODUCT_EVENTS.PROGRESS_UPDATED, {
+                anime_id: Number(animeId),
+                episode: newEp,
+                previous_episode: previousEpisode,
+                total_episodes: totalEp,
+                source: getEventSource(options),
+            });
         } catch (error) {
             console.error("Erro ao atualizar progresso:", error);
             toast.error("Falha ao salvar progresso.", "Erro");
+            throw error;
         }
     };
 
-    const incrementProgress = (animeId, currentEp, totalEp) => {
-        return updateProgress(animeId, currentEp + 1, totalEp);
+    const incrementProgress = (animeId, currentEp, totalEp, options = { source: 'unknown' }) => {
+        return updateProgress(animeId, currentEp + 1, totalEp, options);
     };
 
     // 4. Mudar Status
-    const updateStatus = async (animeId, newStatus, totalEp = 0) => {
+    const updateStatus = async (animeId, newStatus, totalEp = 0, options = { source: 'unknown' }) => {
         if (!user) return;
         try {
             const animeRef = doc(db, 'users', user.uid, APP_CONFIG.LIBRARY.COLLECTION_NAME, String(animeId));
@@ -218,6 +279,13 @@ export function useAnimeLibrary() {
                 updates.currentEp = totalEp;
             }
             await updateDoc(animeRef, updates);
+
+            void trackProductEvent(PRODUCT_EVENTS.LIBRARY_UPDATED, {
+                action: 'status_change',
+                anime_id: Number(animeId),
+                status: newStatus,
+                source: getEventSource(options),
+            });
             toast.success("Status atualizado.", "Biblioteca");
         } catch (error) {
             console.error("Erro ao atualizar status:", error);
@@ -243,19 +311,26 @@ export function useAnimeLibrary() {
     };
 
     // 6. Remover Anime
-    const removeFromLibrary = async (animeId) => {
+    const removeFromLibrary = async (animeId, options = { source: 'unknown' }) => {
         if (!user) return;
         try {
             await deleteDoc(doc(db, 'users', user.uid, APP_CONFIG.LIBRARY.COLLECTION_NAME, String(animeId)));
+
+            void trackProductEvent(PRODUCT_EVENTS.LIBRARY_UPDATED, {
+                action: 'remove',
+                anime_id: Number(animeId),
+                source: getEventSource(options),
+            });
             toast.info("Anime removido da biblioteca.", "Removido");
         } catch (error) {
             console.error("Erro ao remover anime:", error);
             toast.error("Erro ao remover anime.", "Erro");
+            throw error;
         }
     };
 
     // 7. Toggle Favorito
-    const toggleFavorite = async (anime) => {
+    const toggleFavorite = async (anime, options = { source: 'unknown' }) => {
         if (!user) throw new Error("Usuário não autenticado");
 
         const rawId = anime.id || anime.mal_id;
@@ -277,14 +352,22 @@ export function useAnimeLibrary() {
             const animeRef = doc(db, 'users', user.uid, APP_CONFIG.LIBRARY.COLLECTION_NAME, animeId);
 
             if (!libraryItem) {
-                await addToLibrary(anime);
-                await updateDoc(animeRef, { isFavorite: true });
+                await addToLibrary(anime, 'plan_to_watch', {
+                    ...options,
+                    initialFavorite: true,
+                });
                 toast.success("Adicionado aos Favoritos!", "Favoritou");
             } else {
                 await updateDoc(animeRef, { isFavorite: !isCurrentlyFavorite });
                 if (!isCurrentlyFavorite) toast.success("Adicionado aos Favoritos!", "Favoritou");
                 else toast.info("Removido dos Favoritos.", "Desfavoritou");
             }
+
+            void trackProductEvent(PRODUCT_EVENTS.LIBRARY_UPDATED, {
+                action: 'favorite_change',
+                anime_id: Number(animeId),
+                source: getEventSource(options),
+            });
         } catch (error) {
             console.error("Erro ao alterar favorito:", error);
             toast.error("Erro ao alterar favorito.", "Erro");
@@ -350,6 +433,9 @@ export function useAnimeLibrary() {
     return {
         library,
         loading,
+        error,
+        retry,
+        refetch: retry,
         addToLibrary,
         incrementProgress,
         updateProgress,

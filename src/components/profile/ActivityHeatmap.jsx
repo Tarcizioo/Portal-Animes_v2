@@ -1,240 +1,195 @@
-import { useMemo, useRef, useEffect, useState } from 'react';
-import { CalendarDays, ChevronDown } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CalendarDays } from 'lucide-react';
+import { buildActivityWeeks } from '@/components/profile/activityHeatmapUtils';
 
-// ── Date helpers ──────────────────────────────────────────────────────────────
+const EMPTY_ACTIVITY_LOG = {};
+const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const WEEKDAY_LABELS = ['Dom', '', 'Ter', '', 'Qui', '', 'Sáb'];
+const CELL_GAP = 2;
+const LABEL_WIDTH = 22;
 
 function toKey(date) {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-const MONTH_NAMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-// Sun=0 … Sat=6 labels (left axis)
-const WEEKDAY_LABELS = ['Dom', '', 'Ter', '', 'Qui', '', 'Sáb'];
+function getActivityLevel(count) {
+  if (!count || count <= 0) return 0;
+  if (count <= 2) return 1;
+  if (count <= 5) return 2;
+  if (count <= 9) return 3;
+  return 4;
+}
 
-/**
- * Build a calendar aligned to real weeks (Sun→Sat).
- * Returns an array of 7-element arrays (columns = weeks).
- * Entries can be a Date or null (gap padding before first real day, or future).
- * @param {number} numWeeks - how many weeks to display (26 or 52)
- */
-function buildWeeks(numWeeks = 52) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+function getInitialWeeksCount() {
+  if (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 639px)').matches) return 26;
+  return 52;
+}
 
-    // Start of the week (Sunday) that was ≈ numWeeks weeks ago
-    const startDay = new Date(today);
-    startDay.setDate(today.getDate() - numWeeks * 7 + 1);
-    startDay.setDate(startDay.getDate() - startDay.getDay()); // rewind to Sunday
+export function ActivityHeatmap({ activityLog = EMPTY_ACTIVITY_LOG }) {
+  const [weeksCount, setWeeksCount] = useState(getInitialWeeksCount);
+  const [cellSize, setCellSize] = useState(8);
+  const wrapRef = useRef(null);
+  const userSelectedPeriod = useRef(false);
+  const weeks = useMemo(() => buildActivityWeeks(weeksCount), [weeksCount]);
 
-    const weeks = [];
-    const cursor = new Date(startDay);
+  const totalEpisodes = useMemo(
+    () => Object.values(activityLog).reduce((total, value) => total + Number(value || 0), 0),
+    [activityLog],
+  );
 
-    while (cursor <= today) {
-        const week = [];
-        for (let d = 0; d < 7; d++) {
-            const day = new Date(cursor);
-            // null = future day (rest of the final week after today)
-            week.push(day <= today ? day : null);
-            cursor.setDate(cursor.getDate() + 1);
-        }
-        weeks.push(week);
+  const monthLabels = useMemo(() => weeks.map((week, weekIndex) => {
+    const firstRealDay = week.find(Boolean);
+    if (!firstRealDay) return null;
+    const previousRealDay = weeks[weekIndex - 1]?.find(Boolean);
+    if (previousRealDay && previousRealDay.getMonth() === firstRealDay.getMonth()) return null;
+    return { weekIndex, name: MONTH_NAMES[firstRealDay.getMonth()] };
+  }).filter(Boolean), [weeks]);
+
+  useEffect(() => {
+    const container = wrapRef.current;
+    if (!container) return undefined;
+
+    const computeLayout = () => {
+      const availableWidth = Math.max(0, container.clientWidth - LABEL_WIDTH - CELL_GAP);
+      if (!userSelectedPeriod.current && container.clientWidth > 0) {
+        const responsiveWeeks = container.clientWidth < 540 ? 26 : 52;
+        setWeeksCount((current) => (current === responsiveWeeks ? current : responsiveWeeks));
+      }
+
+      const proposedSize = Math.floor(
+        (availableWidth - (CELL_GAP * (weeks.length - 1))) / weeks.length,
+      );
+      const minimumSize = weeksCount === 26 ? 7 : 8;
+      const nextSize = Math.max(minimumSize, Math.min(13, proposedSize || minimumSize));
+      setCellSize((current) => (current === nextSize ? current : nextSize));
+    };
+
+    computeLayout();
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(computeLayout);
+      observer.observe(container);
+      return () => observer.disconnect();
     }
 
-    return weeks;
-}
+    window.addEventListener('resize', computeLayout);
+    return () => window.removeEventListener('resize', computeLayout);
+  }, [weeks.length, weeksCount]);
 
-/** Heatmap level (0‒4) */
-function level(count) {
-    if (!count || count === 0) return 0;
-    if (count <= 2) return 1;
-    if (count <= 5) return 2;
-    if (count <= 9) return 3;
-    return 4;
-}
+  const selectPeriod = (count) => {
+    userSelectedPeriod.current = true;
+    setWeeksCount(count);
+  };
 
-// ── Component ─────────────────────────────────────────────────────────────────
+  const gridWidth = (weeks.length * cellSize) + ((weeks.length - 1) * CELL_GAP);
+  const step = cellSize + CELL_GAP;
 
-/**
- * @param {{ activityLog?: Record<string, number> }} props
- */
-export function ActivityHeatmap({ activityLog = {} }) {
-    // 26 = 6 months, 52 = 12 months
-    const [weeksCount, setWeeksCount] = useState(52);
-
-    const weeks = useMemo(() => buildWeeks(weeksCount), [weeksCount]);
-
-    const totalEps = useMemo(
-        () => Object.values(activityLog).reduce((s, v) => s + v, 0),
-        [activityLog]
-    );
-
-    // Build month labels: show a month name above the first week that contains the 1st
-    const monthLabels = useMemo(() => {
-        return weeks.map((week, wi) => {
-            const firstReal = week.find(d => d !== null);
-            if (!firstReal) return null;
-            if (firstReal.getDate() <= 7) return { wi, name: MONTH_NAMES[firstReal.getMonth()] };
-            return null;
-        }).filter(Boolean);
-    }, [weeks]);
-
-    // ── Responsive cell size: measure container, then compute ─────────────────
-    const wrapRef = useRef(null);
-    const [cellSize, setCellSize] = useState(12);
-    const GAP = 3;
-
-    useEffect(() => {
-        if (!wrapRef.current) return;
-        const compute = () => {
-            const available = wrapRef.current.clientWidth - 30; // 30px for day-labels
-            const size = Math.floor((available - GAP * (weeks.length - 1)) / weeks.length);
-            setCellSize(Math.max(8, Math.min(14, size)));
-        };
-        compute();
-        const ro = new ResizeObserver(compute);
-        ro.observe(wrapRef.current);
-        return () => ro.disconnect();
-    }, [weeks.length]);
-
-    const STEP = cellSize + GAP;
-
-    return (
-        <div className="bg-bg-secondary border border-border-color rounded-2xl p-4 md:p-6 select-none overflow-hidden">
-            {/* Header */}
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <h3 className="font-bold text-text-primary text-sm md:text-base flex items-center gap-2 shrink-0">
-                    <CalendarDays className="w-4 h-4 text-button-accent" /> Atividade de Episódios
-                </h3>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                    {/* Period toggle */}
-                    <div className="flex items-center gap-1 bg-bg-tertiary border border-border-color rounded-lg p-0.5">
-                        <button
-                            onClick={() => setWeeksCount(26)}
-                            className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${weeksCount === 26
-                                ? 'bg-button-accent text-white shadow-sm'
-                                : 'text-text-secondary hover:text-text-primary'
-                            }`}
-                        >
-                            6 meses
-                        </button>
-                        <button
-                            onClick={() => setWeeksCount(52)}
-                            className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${weeksCount === 52
-                                ? 'bg-button-accent text-white shadow-sm'
-                                : 'text-text-secondary hover:text-text-primary'
-                            }`}
-                        >
-                            12 meses
-                        </button>
-                    </div>
-
-                    <span className="text-xs text-text-secondary font-medium whitespace-nowrap">
-                        {totalEps} eps
-                    </span>
-                </div>
-            </div>
-
-            {/* Outer wrapper: overflow-hidden prevents pixel-based labels from blowing out viewport */}
-            <div ref={wrapRef} className="w-full overflow-hidden">
-                <div style={{ display: 'flex', gap: 0, width: '100%', alignItems: 'flex-start' }}>
-
-                    {/* Weekday labels (left) */}
-                    <div style={{
-                        display: 'flex', flexDirection: 'column', gap: GAP,
-                        marginRight: GAP + 2, paddingTop: 20, flexShrink: 0,
-                        width: 26,
-                    }}>
-                        {WEEKDAY_LABELS.map((l, i) => (
-                            <div key={i} style={{
-                                height: cellSize, lineHeight: `${cellSize}px`,
-                                fontSize: 9, color: 'var(--text-secondary)',
-                                textAlign: 'right',
-                            }}>
-                                {l}
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Grid area */}
-                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-                        {/* Month labels — percentage-based so they never overflow on mobile */}
-                        <div style={{ position: 'relative', height: 20, marginBottom: 2, overflow: 'hidden' }}>
-                            {monthLabels.map((m, i) => (
-                                <span key={i} style={{
-                                    position: 'absolute',
-                                    left: `${(m.wi / weeks.length) * 100}%`,
-                                    fontSize: 10,
-                                    color: 'var(--text-secondary)',
-                                    lineHeight: '20px',
-                                    whiteSpace: 'nowrap',
-                                    transform: 'translateX(-2px)', // tiny nudge to align with column start
-                                }}>
-                                    {m.name}
-                                </span>
-                            ))}
-                        </div>
-
-                        {/* Week columns — flex row, each col = flex column of 7 cells */}
-                        <div style={{ display: 'flex', gap: GAP }}>
-                            {weeks.map((week, wi) => (
-                                <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: GAP, flex: '1 1 0', minWidth: 0 }}>
-                                    {week.map((day, di) => {
-                                        if (day === null) {
-                                            // future padding — transparent placeholder
-                                            return (
-                                                <div key={di} style={{ height: cellSize, borderRadius: 3 }} />
-                                            );
-                                        }
-                                        const key = toKey(day);
-                                        const count = activityLog[key] || 0;
-                                        const lv = level(count);
-                                        const label = count
-                                            ? `${count} ep${count > 1 ? 's' : ''} assistido${count > 1 ? 's' : ''} em ${day.toLocaleDateString('pt-BR')}`
-                                            : `Nenhuma atividade em ${day.toLocaleDateString('pt-BR')}`;
-                                        return (
-                                            <div
-                                                key={di}
-                                                title={label}
-                                                aria-label={label}
-                                                style={{
-                                                    height: cellSize,
-                                                    borderRadius: 3,
-                                                    backgroundColor: `var(--heatmap-${lv})`,
-                                                    border: lv > 0
-                                                        ? '1px solid color-mix(in srgb, var(--button-accent) 40%, transparent)'
-                                                        : '1px solid var(--border-color)',
-                                                    transition: 'opacity 0.15s',
-                                                    cursor: 'default',
-                                                    flexShrink: 0,
-                                                }}
-                                                onMouseEnter={e => e.currentTarget.style.opacity = '0.75'}
-                                                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Legend */}
-            <div className="flex items-center gap-2 mt-4 justify-end">
-                <span className="text-[10px] text-text-secondary">Menos</span>
-                {[0, 1, 2, 3, 4].map(l => (
-                    <div key={l} style={{
-                        width: 12, height: 12, borderRadius: 3,
-                        flexShrink: 0,
-                        backgroundColor: `var(--heatmap-${l})`,
-                        border: l > 0
-                            ? '1px solid color-mix(in srgb, var(--button-accent) 40%, transparent)'
-                            : '1px solid rgba(255,255,255,0.05)',
-                    }} />
-                ))}
-                <span className="text-[10px] text-text-secondary">Mais</span>
-            </div>
+  return (
+    <section className="min-w-0 max-w-full select-none overflow-hidden rounded-2xl border border-border-color bg-bg-secondary p-4 md:p-6" aria-labelledby="activity-heatmap-title">
+      <div className="mb-4 grid min-w-0 gap-3 sm:flex sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h3 id="activity-heatmap-title" className="flex items-center gap-2 text-sm font-bold text-text-primary md:text-base">
+            <CalendarDays className="h-4 w-4 shrink-0 text-button-accent" aria-hidden="true" /> Atividade de episódios
+          </h3>
+          <p className="mt-1 text-[10px] font-semibold text-text-secondary">
+            {totalEpisodes.toLocaleString('pt-BR')} {totalEpisodes === 1 ? 'episódio registrado' : 'episódios registrados'}
+          </p>
         </div>
-    );
+
+        <div className="grid grid-cols-2 rounded-xl border border-border-color bg-bg-tertiary p-1" aria-label="Período do mapa de atividade">
+          <button
+            type="button"
+            onClick={() => selectPeriod(26)}
+            aria-pressed={weeksCount === 26}
+            className={`min-h-11 rounded-lg px-3 text-xs font-bold transition-colors ${weeksCount === 26 ? 'bg-button-accent text-text-on-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+          >
+            6 meses
+          </button>
+          <button
+            type="button"
+            onClick={() => selectPeriod(52)}
+            aria-pressed={weeksCount === 52}
+            className={`min-h-11 rounded-lg px-3 text-xs font-bold transition-colors ${weeksCount === 52 ? 'bg-button-accent text-text-on-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+          >
+            12 meses
+          </button>
+        </div>
+      </div>
+
+      <div ref={wrapRef} data-testid="activity-heatmap-scroll" className="max-w-full overflow-x-auto overscroll-x-contain pb-1">
+        <div className="flex items-start" style={{ width: LABEL_WIDTH + CELL_GAP + gridWidth }}>
+          <div className="flex shrink-0 flex-col" style={{ gap: CELL_GAP, marginRight: CELL_GAP, paddingTop: 22, width: LABEL_WIDTH }}>
+            {WEEKDAY_LABELS.map((label, index) => (
+              <div key={index} className="pr-1 text-right text-[8px] text-text-secondary" style={{ height: cellSize, lineHeight: `${cellSize}px` }}>
+                {label}
+              </div>
+            ))}
+          </div>
+
+          <div className="min-w-0" style={{ width: gridWidth }}>
+            <div className="relative mb-0.5 h-5 overflow-hidden">
+              {monthLabels.map((month) => (
+                <span key={`${month.weekIndex}-${month.name}`} className="absolute whitespace-nowrap text-[9px] leading-5 text-text-secondary" style={{ left: month.weekIndex * step }}>
+                  {month.name}
+                </span>
+              ))}
+            </div>
+
+            <div className="flex" style={{ gap: CELL_GAP }} aria-label={`Mapa dos últimos ${weeksCount === 26 ? '6' : '12'} meses`}>
+              {weeks.map((week, weekIndex) => (
+                <div key={weekIndex} className="flex shrink-0 flex-col" style={{ gap: CELL_GAP, width: cellSize }}>
+                  {week.map((day, dayIndex) => {
+                    if (!day) return <span key={dayIndex} aria-hidden="true" style={{ width: cellSize, height: cellSize }} />;
+                    const dateKey = toKey(day);
+                    const count = Number(activityLog[dateKey] || 0);
+                    const activityLevel = getActivityLevel(count);
+                    const label = count
+                      ? `${count} ${count === 1 ? 'episódio registrado' : 'episódios registrados'} em ${day.toLocaleDateString('pt-BR')}`
+                      : `Nenhuma atividade em ${day.toLocaleDateString('pt-BR')}`;
+
+                    return (
+                      <span
+                        key={dayIndex}
+                        title={label}
+                        aria-label={label}
+                        className="shrink-0 rounded-[3px] transition-opacity hover:opacity-75"
+                        style={{
+                          width: cellSize,
+                          height: cellSize,
+                          backgroundColor: `var(--heatmap-${activityLevel})`,
+                          border: activityLevel > 0
+                            ? '1px solid color-mix(in srgb, var(--button-accent) 40%, transparent)'
+                            : '1px solid var(--border-color)',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] text-text-secondary">{weeksCount === 52 ? 'Deslize o mapa para consultar o ano completo.' : 'Seis meses priorizados para melhor leitura.'}</p>
+        <div className="flex items-center gap-1.5" aria-label="Intensidade da atividade">
+          <span className="text-[10px] text-text-secondary">Menos</span>
+          {[0, 1, 2, 3, 4].map((activityLevel) => (
+            <span
+              key={activityLevel}
+              aria-hidden="true"
+              className="h-3 w-3 shrink-0 rounded-[3px]"
+              style={{
+                backgroundColor: `var(--heatmap-${activityLevel})`,
+                border: activityLevel > 0
+                  ? '1px solid color-mix(in srgb, var(--button-accent) 40%, transparent)'
+                  : '1px solid var(--border-color)',
+              }}
+            />
+          ))}
+          <span className="text-[10px] text-text-secondary">Mais</span>
+        </div>
+      </div>
+    </section>
+  );
 }

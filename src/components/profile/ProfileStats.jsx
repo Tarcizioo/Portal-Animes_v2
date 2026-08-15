@@ -1,10 +1,10 @@
-import { CheckCircle2, LibraryBig, PlaySquare, Star } from 'lucide-react';
+import { CheckCircle2, LibraryBig, ListChecks, Star } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 
 const STAT_STYLES = {
+  episodes: 'bg-button-accent/15 text-button-accent ring-button-accent/25',
   library: 'bg-button-accent/10 text-button-accent ring-button-accent/15',
   completed: 'bg-emerald-500/10 text-emerald-400 ring-emerald-500/15',
-  episodes: 'bg-cyan-500/10 text-cyan-400 ring-cyan-500/15',
   score: 'bg-amber-400/10 text-amber-300 ring-amber-400/15',
 };
 
@@ -21,9 +21,9 @@ export function ProfileStats({ library = [], isLoading = false }) {
     ? (rated.reduce((total, anime) => total + Number(anime.score), 0) / rated.length).toFixed(1)
     : '—';
   const stats = [
+    { id: 'episodes', label: 'Episódios registrados', value: episodes.toLocaleString('pt-BR'), icon: ListChecks },
     { id: 'library', label: 'Na biblioteca', value: items.length, icon: LibraryBig },
     { id: 'completed', label: 'Concluídos', value: completed, icon: CheckCircle2 },
-    { id: 'episodes', label: 'Episódios vistos', value: episodes.toLocaleString('pt-BR'), icon: PlaySquare },
     { id: 'score', label: 'Nota média', value: meanScore, icon: Star },
   ];
 
@@ -32,10 +32,10 @@ export function ProfileStats({ library = [], isLoading = false }) {
       {stats.map((stat) => {
         const Icon = stat.icon;
         return (
-          <div key={stat.id} className="group relative overflow-hidden rounded-2xl border border-border-color bg-bg-secondary p-4 shadow-lg shadow-black/5 transition-transform hover:-translate-y-0.5 sm:p-5">
+          <div key={stat.id} data-stat-id={stat.id} className={`group relative min-w-0 overflow-hidden rounded-2xl border bg-bg-secondary p-3.5 shadow-lg shadow-black/5 transition-transform hover:-translate-y-0.5 sm:p-5 ${stat.id === 'episodes' ? 'border-button-accent/30 ring-1 ring-button-accent/10' : 'border-border-color'}`}>
             <div className="flex items-start justify-between gap-3">
-              <div><p className="text-[10px] font-black uppercase tracking-[0.14em] text-text-secondary">{stat.label}</p><p className="mt-2 text-2xl font-black tracking-tight text-text-primary sm:text-3xl">{stat.value}</p></div>
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${STAT_STYLES[stat.id]}`}><Icon className="h-4 w-4" /></span>
+              <div className="min-w-0"><p className="min-h-7 text-[9px] font-black uppercase leading-tight tracking-[0.11em] text-text-secondary sm:min-h-0 sm:text-[10px] sm:tracking-[0.14em]">{stat.label}</p><p className="mt-1.5 truncate text-2xl font-black tracking-tight text-text-primary sm:mt-2 sm:text-3xl">{stat.value}</p></div>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${STAT_STYLES[stat.id]}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
             </div>
           </div>
         );

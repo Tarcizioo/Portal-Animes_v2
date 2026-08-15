@@ -10,8 +10,11 @@ const AnimeDetails = lazy(() => import('@/components/pages/AnimeDetails').then(m
 const AnimeStaff = lazy(() => import('@/components/pages/AnimeStaff').then(module => ({ default: module.AnimeStaff })));
 const AnimeCharacters = lazy(() => import('@/components/pages/AnimeCharacters').then(module => ({ default: module.AnimeCharacters })));
 const Catalog = lazy(() => import('@/components/pages/Catalog').then(module => ({ default: module.Catalog })));
+const Discover = lazy(() => import('@/components/pages/Discover').then(module => ({ default: module.Discover })));
 const Calendar = lazy(() => import('@/components/pages/Calendar').then(module => ({ default: module.Calendar })));
 const Profile = lazy(() => import('@/components/pages/Profile').then(module => ({ default: module.Profile })));
+const Login = lazy(() => import('@/components/pages/Login').then(module => ({ default: module.Login })));
+const Onboarding = lazy(() => import('@/components/pages/Onboarding').then(module => ({ default: module.Onboarding })));
 const Characters = lazy(() => import('@/components/pages/Characters').then(module => ({ default: module.Characters })));
 const CharacterDetails = lazy(() => import('@/components/pages/CharacterDetails').then(module => ({ default: module.CharacterDetails })));
 const VoiceActors = lazy(() => import('@/components/pages/VoiceActors').then(module => ({ default: module.VoiceActors })));
@@ -32,6 +35,7 @@ import { Loader } from '@/components/ui/Loader';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { ProtectedRoute } from '@/components/ui/ProtectedRoute';
 import { RouteErrorBoundary } from '@/components/ui/RouteErrorBoundary';
+import { OnboardingGate } from '@/components/onboarding/OnboardingGate';
 
 const PageLoader = () => (
   <div className="flex items-center justify-center w-full h-full min-h-[60vh]">
@@ -50,6 +54,7 @@ const AnimatedRoutes = () => {
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={<PageTransition><RouteErrorBoundary><Home /></RouteErrorBoundary></PageTransition>} />
+            <Route path="/discover" element={<PageTransition><RouteErrorBoundary><Discover /></RouteErrorBoundary></PageTransition>} />
             <Route path="/catalog" element={<PageTransition><RouteErrorBoundary><Catalog /></RouteErrorBoundary></PageTransition>} />
             <Route path="/search" element={<PageTransition><RouteErrorBoundary><GlobalSearch /></RouteErrorBoundary></PageTransition>} />
             <Route path="/calendar" element={<PageTransition><RouteErrorBoundary><Calendar /></RouteErrorBoundary></PageTransition>} />
@@ -63,6 +68,8 @@ const AnimatedRoutes = () => {
             <Route path="/anime/:id/characters" element={<PageTransition><RouteErrorBoundary><AnimeCharacters /></RouteErrorBoundary></PageTransition>} />
             <Route path="/library" element={<PageTransition><ProtectedRoute><RouteErrorBoundary><Library /></RouteErrorBoundary></ProtectedRoute></PageTransition>} />
             <Route path="/stats" element={<PageTransition><ProtectedRoute><RouteErrorBoundary><Stats /></RouteErrorBoundary></ProtectedRoute></PageTransition>} />
+            <Route path="/login" element={<PageTransition><RouteErrorBoundary><Login /></RouteErrorBoundary></PageTransition>} />
+            <Route path="/onboarding" element={<PageTransition><RouteErrorBoundary><Onboarding /></RouteErrorBoundary></PageTransition>} />
             <Route path="/profile" element={<PageTransition><ProtectedRoute><RouteErrorBoundary><Profile /></RouteErrorBoundary></ProtectedRoute></PageTransition>} />
             <Route path="/u/:uid" element={<PageTransition><RouteErrorBoundary><PublicProfile /></RouteErrorBoundary></PageTransition>} />
             <Route path="/u/:uid/library" element={<PageTransition><RouteErrorBoundary><PublicLibrary /></RouteErrorBoundary></PageTransition>} />
@@ -81,7 +88,9 @@ function App() {
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <ScrollToTop />
       <ErrorBoundary>
-        <AnimatedRoutes />
+        <OnboardingGate>
+          <AnimatedRoutes />
+        </OnboardingGate>
       </ErrorBoundary>
     </BrowserRouter>
   );

@@ -113,10 +113,10 @@ export function Calendar() {
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
                         >
-                            <option value="members">🔥 Popularidade</option>
-                            <option value="score">⭐ Maior Nota</option>
-                            <option value="az">🔤 Ordem Alfabética (A-Z)</option>
-                            <option value="za">🔤 Ordem Alfabética (Z-A)</option>
+                            <option value="members">Popularidade</option>
+                            <option value="score">Maior Nota</option>
+                            <option value="az">Ordem Alfabética (A-Z)</option>
+                            <option value="za">Ordem Alfabética (Z-A)</option>
                         </select>
                         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
                     </div>

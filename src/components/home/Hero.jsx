@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Info, Plus, Star, PlayCircle, TrendingUp, Calendar, Heart, Award } from 'lucide-react';
+import { Award, Calendar, CircleCheck, Heart, Info, Plus, Star, TrendingUp } from 'lucide-react';
 import { useAnimeLibrary } from '@/hooks/useAnimeLibrary';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
@@ -99,7 +99,7 @@ function HeroBackground({ source, fallbackSrc, reduceMotion, priority }) {
 
         setHasFailed(true);
       }}
-      className="hero-backdrop-image h-full w-full object-cover opacity-60 md:opacity-80"
+      className="hero-backdrop-image h-full w-full object-cover opacity-75 md:opacity-80"
     />
   );
 }
@@ -190,7 +190,7 @@ export function Hero({ animes = [] }) {
       return;
     }
     try {
-      await addToLibrary(anime);
+      await addToLibrary(anime, 'plan_to_watch', { source: 'home_hero' });
       toast.success("Adicionado à lista com sucesso!");
     } catch {
       toast.error("Erro ao adicionar à lista.");
@@ -204,7 +204,7 @@ export function Hero({ animes = [] }) {
     return (
       <section data-home-hero data-header-hero className="hero-stage relative w-full">
         <div
-          className="hero-card hero-frame hero-loading flex w-full animate-pulse items-center justify-center rounded-[2rem] border border-white/5 bg-[#121214] sm:rounded-[2.5rem]"
+          className="hero-card hero-frame hero-loading flex w-full !min-h-[20.5rem] animate-pulse items-center justify-center rounded-[1.75rem] border border-white/5 bg-[#121214] sm:!min-h-96 sm:rounded-[2rem] md:!min-h-[clamp(40.625rem,calc(100svh-6.5rem),47.5rem)] md:rounded-[2.5rem] lg:!min-h-[clamp(44rem,calc(100svh-7.5rem),52rem)]"
           role="status"
         >
           <span className="font-medium text-gray-500">Carregando destaques...</span>
@@ -228,7 +228,7 @@ export function Hero({ animes = [] }) {
         }
       }}
     >
-      <div className="hero-card hero-frame group relative z-10 flex w-full items-end overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] xl:items-center">
+      <div className="hero-card hero-frame group relative z-10 flex w-full !min-h-[20.5rem] items-end overflow-hidden rounded-[1.75rem] sm:!min-h-96 sm:rounded-[2rem] md:!min-h-[clamp(40.625rem,calc(100svh-6.5rem),47.5rem)] md:rounded-[2.5rem] lg:!min-h-[clamp(44rem,calc(100svh-7.5rem),52rem)] xl:items-center">
         <AnimatePresence initial={false} mode="sync">
           <motion.div
             key={slideKey}
@@ -259,7 +259,7 @@ export function Hero({ animes = [] }) {
             initial={reduceMotion ? false : 'enter'}
             animate="active"
             exit={reduceMotion ? undefined : 'exit'}
-            className="relative z-10 mr-auto flex w-full max-w-[95%] flex-col items-end gap-6 p-6 sm:p-8 xl:max-w-[92%] xl:flex-row xl:items-center xl:gap-12 xl:p-12"
+            className="relative z-10 mr-auto flex w-full max-w-full flex-col items-start gap-3 p-4 sm:gap-5 sm:p-6 md:max-w-[95%] md:items-end md:p-8 xl:max-w-[92%] xl:flex-row xl:items-center xl:gap-12 xl:p-12"
           >
             <motion.div
               custom={slideDirection}
@@ -269,7 +269,7 @@ export function Hero({ animes = [] }) {
               <ResponsiveImage
                 src={anime.image || anime.images?.webp?.large_image_url || anime.images?.jpg?.large_image_url || anime.smallImage}
                 fallbackSrc={anime.smallImage || anime.images?.webp?.image_url || anime.images?.jpg?.image_url}
-                srcSet={anime.smallImage && anime.image ? anime.smallImage + ' 320w, ' + anime.image + ' 680w' : undefined}
+                srcSet={anime.smallImage && anime.image ? anime.smallImage + ' 100w, ' + anime.image + ' 460w' : undefined}
                 sizes="(min-width: 1536px) 340px, 320px"
                 alt={anime.title}
                 width="340"
@@ -283,11 +283,11 @@ export function Hero({ animes = [] }) {
             <motion.div
               custom={slideDirection}
               variants={CONTENT_VARIANTS}
-              className="w-full flex-1 space-y-6 pb-16 text-center xl:pb-0 xl:text-left"
+              className="w-full flex-1 space-y-2.5 pb-10 text-left sm:space-y-4 sm:pb-12 md:space-y-6 md:pb-16 md:text-center xl:pb-0 xl:text-left"
             >
               <motion.div
                 variants={CONTENT_ITEM_VARIANTS}
-                className="flex flex-wrap items-center justify-center gap-3 xl:justify-start"
+                className="flex min-h-8 flex-wrap items-center justify-start gap-2 md:justify-center md:gap-3 xl:justify-start"
               >
                 {(() => {
                   if (!anime.heroLabel) return null;
@@ -295,34 +295,34 @@ export function Hero({ animes = [] }) {
                   const IconComponent = HERO_ICON_MAP[anime.heroIcon] || Award;
 
                   return (
-                    <span className={'flex items-center gap-1.5 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-bold uppercase tracking-wider backdrop-blur-md ' + (anime.heroColor || 'text-white')}>
+                    <span className={'flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-xs font-bold tracking-wide backdrop-blur-md ' + (anime.heroColor || 'text-white')}>
                       <IconComponent className="h-3.5 w-3.5" /> {anime.heroLabel}
                     </span>
                   );
                 })()}
-                <span className="flex cursor-default items-center gap-1.5 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-bold text-yellow-400 backdrop-blur-md">
-                  <Star className="h-3.5 w-3.5 fill-current" /> {anime.score || 'N/A'}
-                </span>
-                <span className="flex cursor-default items-center gap-1.5 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-bold text-gray-200 backdrop-blur-md">
-                  <Calendar className="h-3.5 w-3.5" /> {anime.year || 'N/A'}
-                </span>
               </motion.div>
 
               <motion.h1
                 variants={CONTENT_ITEM_VARIANTS}
-                className="line-clamp-2 text-4xl font-black leading-[0.9] text-white drop-shadow-2xl md:line-clamp-3 md:text-6xl lg:text-7xl"
+                className="line-clamp-2 text-2xl font-black leading-[1.04] text-white drop-shadow-2xl sm:text-4xl md:line-clamp-3 md:text-6xl md:leading-[0.9] lg:text-7xl"
               >
                 {anime.title}
               </motion.h1>
 
               <motion.div
                 variants={CONTENT_ITEM_VARIANTS}
-                className="flex flex-wrap justify-center gap-2 xl:justify-start"
+                className="flex flex-wrap justify-start gap-2 md:justify-center xl:justify-start"
               >
+                <span className="flex cursor-default items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-xs font-bold text-yellow-400 backdrop-blur-md">
+                  <Star aria-hidden="true" className="h-3.5 w-3.5 fill-current" /> {anime.score ?? 'N/A'}
+                </span>
+                <span className="flex cursor-default items-center gap-1.5 rounded-xl border border-white/10 bg-black/30 px-3 py-1.5 text-xs font-bold text-gray-200 backdrop-blur-md">
+                  <Calendar aria-hidden="true" className="h-3.5 w-3.5" /> {anime.year || 'N/A'}
+                </span>
                 {anime.genres && anime.genres.slice(0, 3).map((genre, index) => (
                   <span
                     key={String(genre?.mal_id || index)}
-                    className="rounded-full border border-white/10 bg-black/20 px-4 py-1.5 text-xs font-medium text-gray-200 backdrop-blur-md md:text-sm"
+                    className={`${index > 0 ? 'hidden sm:inline-flex' : 'inline-flex'} rounded-xl border border-white/10 bg-black/20 px-3 py-1.5 text-xs font-medium text-gray-200 backdrop-blur-md md:px-4 md:text-sm`}
                   >
                     {genre?.name || genre}
                   </span>
@@ -331,24 +331,24 @@ export function Hero({ animes = [] }) {
 
               <motion.p
                 variants={CONTENT_ITEM_VARIANTS}
-                className="mx-auto line-clamp-3 max-w-2xl text-sm font-light leading-relaxed text-gray-300 drop-shadow-md md:line-clamp-4 md:text-lg xl:mx-0"
+                className="line-clamp-2 max-w-2xl text-xs font-light leading-relaxed text-gray-200 drop-shadow-md sm:text-sm md:mx-auto md:line-clamp-4 md:text-lg xl:mx-0"
               >
                 {anime.synopsis}
               </motion.p>
 
               <motion.div
                 variants={CONTENT_ITEM_VARIANTS}
-                className="flex flex-wrap items-center justify-center gap-4 pt-4 xl:justify-start"
+                className="flex w-full flex-nowrap items-center justify-start gap-2 pt-1 md:w-auto md:flex-wrap md:justify-center md:gap-4 md:pt-4 xl:justify-start"
               >
                 <MotionLink
                   to={'/anime/' + (anime.mal_id || anime.id)}
                   whileHover={reduceMotion ? undefined : { scale: 1.02 }}
                   whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                  className="hero-action pointer-glow pointer-glow--hero flex items-center gap-2 rounded-xl bg-white px-8 py-4 font-bold text-black shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] transition-[background-color,box-shadow,color] hover:bg-white/90"
+                  className="hero-action pointer-glow pointer-glow--hero flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-white !px-2 !py-3 text-xs font-bold text-black shadow-[0_0_20px_-5px_rgba(255,255,255,0.3)] transition-[background-color,box-shadow,color] hover:bg-white/90 min-[360px]:gap-2 min-[360px]:!px-3 min-[360px]:text-sm md:min-h-0 md:flex-none md:!px-8 md:!py-4 md:text-base"
                   onPointerMove={trackPointerGlow}
                   onPointerLeave={resetPointerGlow}
                 >
-                  <Info className="h-5 w-5" /> Ver Detalhes
+                  <Info aria-hidden="true" className="h-4 w-4 shrink-0 min-[360px]:h-5 min-[360px]:w-5" /> <span className="truncate">Ver detalhes</span>
                 </MotionLink>
 
                 {!isInLibrary ? (
@@ -357,15 +357,15 @@ export function Hero({ animes = [] }) {
                     onClick={handleAddToList}
                     whileHover={reduceMotion ? undefined : { scale: 1.02 }}
                     whileTap={reduceMotion ? undefined : { scale: 0.98 }}
-                    className="hero-action hero-action--secondary pointer-glow pointer-glow--hero flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-8 py-4 font-bold text-white backdrop-blur-md transition-[background-color,border-color,box-shadow,color] hover:border-white/30"
+                    className="hero-action hero-action--secondary pointer-glow pointer-glow--hero flex min-h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 !px-2 !py-3 text-xs font-bold text-white backdrop-blur-md transition-[background-color,border-color,box-shadow,color] hover:border-white/30 min-[360px]:gap-2 min-[360px]:!px-3 min-[360px]:text-sm md:min-h-0 md:flex-none md:!px-8 md:!py-4 md:text-base"
                     onPointerMove={trackPointerGlow}
                     onPointerLeave={resetPointerGlow}
                   >
-                    <Plus className="h-5 w-5" /> Minha Lista
+                    <Plus aria-hidden="true" className="h-4 w-4 shrink-0 min-[360px]:h-5 min-[360px]:w-5" /> <span className="truncate">Minha lista</span>
                   </motion.button>
                 ) : (
-                  <div className="flex cursor-default items-center gap-2 rounded-xl border border-green-500/30 bg-green-500/20 px-8 py-4 font-bold text-green-400 backdrop-blur-md">
-                    <PlayCircle className="h-5 w-5" /> Na sua Lista
+                  <div className="flex min-h-12 min-w-0 flex-1 cursor-default items-center justify-center gap-1.5 rounded-xl border border-green-500/30 bg-green-500/20 px-2 py-3 text-xs font-bold text-green-400 backdrop-blur-md min-[360px]:gap-2 min-[360px]:px-3 min-[360px]:text-sm md:min-h-0 md:flex-none md:px-8 md:py-4 md:text-base">
+                    <CircleCheck aria-hidden="true" className="h-4 w-4 shrink-0 min-[360px]:h-5 min-[360px]:w-5" /> <span className="truncate">Na sua lista</span>
                   </div>
                 )}
               </motion.div>
@@ -374,7 +374,7 @@ export function Hero({ animes = [] }) {
         </AnimatePresence>
 
         <div
-          className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1 sm:bottom-4"
+          className="absolute bottom-1 left-1/2 z-20 flex -translate-x-1/2 items-center gap-0.5 sm:bottom-4 sm:gap-1"
           role="group"
           aria-label="Navegação dos destaques"
         >
@@ -388,14 +388,14 @@ export function Hero({ animes = [] }) {
                 onClick={() => handleSelectSlide(idx)}
                 aria-label={(isActive ? 'Destaque atual' : 'Ir para o destaque') + ' ' + (idx + 1) + ': ' + (slideAnime.title || 'sem título')}
                 aria-current={isActive ? 'true' : undefined}
-                className="hero-indicator relative grid h-11 w-12 place-items-center rounded-full"
+                className="hero-indicator relative grid h-10 w-8 place-items-center rounded-full sm:h-11 sm:w-12"
               >
                 <span
                   aria-hidden="true"
                   className={
                     isActive
-                      ? 'hero-indicator__track h-1.5 w-10 rounded-full bg-white transition-[width,background-color] duration-300'
-                      : 'hero-indicator__track h-1.5 w-4 rounded-full bg-white/30 transition-[width,background-color] duration-300'
+                      ? 'hero-indicator__track h-1.5 w-7 rounded-full bg-white transition-[width,background-color] duration-300 sm:w-10'
+                      : 'hero-indicator__track h-1.5 w-2 rounded-full bg-white/30 transition-[width,background-color] duration-300 sm:w-4'
                   }
                 />
               </button>

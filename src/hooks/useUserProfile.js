@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '@/services/firebase';
 import { useAuth } from '@/context/AuthContext';
@@ -8,22 +8,54 @@ export function useUserProfile() {
     const { user } = useAuth();
     const userId = user?.uid || null;
     const { toast } = useToast();
-    const [state, setState] = useState({ uid: null, profile: null, loading: true });
+    const [subscriptionVersion, setSubscriptionVersion] = useState(0);
+    const [state, setState] = useState({
+        uid: null,
+        version: 0,
+        profile: null,
+        loading: true,
+        error: null,
+    });
 
     useEffect(() => {
-        if (!userId) return undefined;
+        if (!userId) {
+            const resetTimer = setTimeout(() => {
+                setState({ uid: null, version: subscriptionVersion, profile: null, loading: false, error: null });
+            }, 0);
+            return () => clearTimeout(resetTimer);
+        }
 
         return onSnapshot(doc(db, 'users', userId), (snapshot) => {
-            setState({ uid: userId, profile: snapshot.exists() ? snapshot.data() : null, loading: false });
+            setState({
+                uid: userId,
+                version: subscriptionVersion,
+                profile: snapshot.exists() ? snapshot.data() : null,
+                loading: false,
+                error: null,
+            });
         }, (error) => {
             console.error('Erro ao buscar perfil:', error);
-            setState({ uid: userId, profile: null, loading: false });
+            setState((current) => ({
+                uid: userId,
+                version: subscriptionVersion,
+                profile: current.uid === userId && current.version === subscriptionVersion
+                    ? current.profile
+                    : null,
+                loading: false,
+                error,
+            }));
         });
-    }, [userId]);
+    }, [subscriptionVersion, userId]);
 
-    const isCurrentUser = state.uid === userId;
+    const isCurrentUser = state.uid === userId && state.version === subscriptionVersion;
     const profile = userId && isCurrentUser ? state.profile : null;
     const loading = Boolean(userId) && (!isCurrentUser || state.loading);
+    const error = userId && isCurrentUser ? state.error : null;
+
+    const retry = useCallback(() => {
+        if (!userId) return;
+        setSubscriptionVersion((current) => current + 1);
+    }, [userId]);
 
     const updateProfileData = async (newData) => {
         if (!userId) return;
@@ -39,5 +71,12 @@ export function useUserProfile() {
         }
     };
 
-    return { profile, loading, updateProfileData };
+    return {
+        profile,
+        loading,
+        error,
+        retry,
+        refetch: retry,
+        updateProfileData,
+    };
 }

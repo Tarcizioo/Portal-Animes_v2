@@ -1,8 +1,8 @@
-import { useEffect, useId } from 'react';
+import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import { useModalClose } from '@/hooks/useModalClose';
+import { useAccessibleDialog } from '@/hooks/useAccessibleDialog';
 
 const SIZE_CLASSES = {
     sm: 'max-w-md',
@@ -23,18 +23,9 @@ export function Modal({
     panelClassName = '',
 }) {
     const titleId = useId();
-    useModalClose(isOpen, onClose);
-
-    useEffect(() => {
-        if (!isOpen) return undefined;
-
-        const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-
-        return () => {
-            document.body.style.overflow = previousOverflow;
-        };
-    }, [isOpen]);
+    const dialogRef = useRef(null);
+    const closeButtonRef = useRef(null);
+    useAccessibleDialog({ isOpen, onClose, dialogRef, initialFocusRef: closeButtonRef });
 
     if (typeof document === 'undefined') return null;
 
@@ -60,10 +51,12 @@ export function Modal({
                     />
 
                     <motion.section
+                        ref={dialogRef}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby={title ? titleId : undefined}
                         aria-label={title ? undefined : 'Janela de diálogo'}
+                        tabIndex={-1}
                         className={`relative flex max-h-[92dvh] w-full ${sizeClass} flex-col overflow-hidden rounded-t-[1.75rem] border border-border-color bg-bg-secondary shadow-[0_28px_90px_rgba(0,0,0,0.55)] sm:rounded-[1.75rem] ${panelClassName}`}
                         initial={{ opacity: 0, y: 36, scale: 0.97 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -87,10 +80,11 @@ export function Modal({
                                 )}
                             </div>
                             <button
+                                ref={closeButtonRef}
                                 type="button"
                                 onClick={onClose}
                                 aria-label="Fechar modal"
-                                className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full border border-border-color bg-bg-tertiary/70 p-0 text-text-secondary transition-all hover:rotate-90 hover:border-primary/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-full border border-border-color bg-bg-tertiary/70 p-0 text-text-secondary transition-all hover:rotate-90 hover:border-primary/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             >
                                 <X className="h-4 w-4" />
                             </button>

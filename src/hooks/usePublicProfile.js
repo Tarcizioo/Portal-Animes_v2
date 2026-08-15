@@ -30,7 +30,7 @@ export function usePublicProfile(userId) {
                 const userData = userSnap.data();
 
                 // 2. Verificar Privacidade (Padrão: Público se undefined)
-                const isPublic = userData.isPublic !== false;
+                const isPublic = userData.isPublic === true;
 
                 if (!isPublic) {
                     setError('Este perfil é privado.');

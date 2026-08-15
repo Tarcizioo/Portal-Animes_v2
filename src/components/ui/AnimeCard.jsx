@@ -2,69 +2,67 @@ import { Star, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ResponsiveImage } from '@/components/ui/ResponsiveImage';
 
-export function AnimeCard({ id, title, genre, image, smallImage, score, onRemove, showScore = true }) {
-  const handleRemove = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onRemove();
-  };
+const getGenreLabel = (genre, genres) => {
+  if (genre) return genre;
+  if (!Array.isArray(genres)) return '';
+  return genres
+    .map((item) => (typeof item === 'object' ? item.name : item))
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(' · ');
+};
+
+export function AnimeCard({ id, title, genre, genres, image, smallImage, score, onRemove, showScore = true }) {
+  const genreLabel = getGenreLabel(genre, genres);
 
   return (
-    <Link to={`/anime/${id}`} className="block group relative cursor-pointer">
-      <div
-        className="relative aspect-[2/3] rounded-xl overflow-hidden mb-3 shadow-lg group-hover:shadow-xl group-hover:shadow-primary/30 transition-all duration-300 transform hover:scale-[1.02] active:scale-95"
-      >
-        <ResponsiveImage
-          src={image}
-          fallbackSrc={smallImage}
-          srcSet={smallImage && smallImage !== image ? `${smallImage} 280w, ${image} 560w` : undefined}
-          sizes="(max-width: 639px) 42vw, (max-width: 1023px) 30vw, (max-width: 1279px) 23vw, 19vw"
-          alt={title}
-          loading="lazy"
-          className="w-full h-full object-cover transition-transform duration-500 will-change-transform"
-        />
-
-        {/* Overlay com Gradiente e Glassmorphism */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-4">
-          <span className="text-white text-sm font-bold opacity-0 md:group-hover:opacity-100 transform translate-y-4 md:group-hover:translate-y-0 transition-all duration-300 delay-75 hidden md:block">
-            Ver Detalhes
+    <article className="group relative min-w-0">
+      <div className="relative mb-3 aspect-[2/3] overflow-hidden rounded-xl shadow-lg transition-all duration-300 group-hover:shadow-xl">
+        <Link
+          to={`/anime/${id}`}
+          aria-label={`Ver detalhes de ${title}`}
+          className="block h-full w-full overflow-hidden rounded-[inherit] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+        >
+          <ResponsiveImage
+            src={image}
+            fallbackSrc={smallImage}
+            srcSet={smallImage && smallImage !== image ? `${smallImage} 100w, ${image} 460w` : undefined}
+            sizes="(max-width: 639px) 42vw, (max-width: 1023px) 30vw, (max-width: 1279px) 23vw, 19vw"
+            alt={title}
+            loading="lazy"
+            className="h-full w-full object-cover transition-transform duration-500 will-change-transform group-hover:scale-[1.02] group-active:scale-[0.98]"
+          />
+          <span className="absolute inset-0 flex items-end bg-gradient-to-t from-black/90 via-black/20 to-transparent p-4 opacity-0 transition-opacity duration-300 md:group-hover:opacity-100">
+            <span className="hidden translate-y-4 text-sm font-bold text-white opacity-0 transition-all delay-75 duration-300 md:block md:group-hover:translate-y-0 md:group-hover:opacity-100">
+              Ver detalhes
+            </span>
           </span>
-        </div>
+        </Link>
 
-        {/* Botão Remover (Lixeira) - Só aparece se onRemove existir */}
         {onRemove && (
           <button
-            onClick={handleRemove}
-            className="absolute top-2 left-2 p-2 rounded-lg backdrop-blur-md border transition-all z-10 shadow-lg
-              opacity-100 md:opacity-0 md:group-hover:opacity-100 
-              bg-black/60 border-white/10 text-white/90
-              md:bg-red-500/20 md:border-red-500/30 md:text-red-500
-              md:transform md:-translate-x-2 md:group-hover:translate-x-0
-              hover:bg-red-500 hover:border-red-500 hover:text-white"
-            title="Remover da Biblioteca"
+            type="button"
+            onClick={onRemove}
+            aria-label={`Remover ${title} da biblioteca`}
+            title="Remover da biblioteca"
+            className="absolute left-2 top-2 z-10 grid h-11 w-11 place-items-center rounded-xl border border-white/10 bg-black/70 p-0 text-white shadow-lg backdrop-blur-md transition-colors hover:border-red-500 hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 md:-translate-x-1 md:bg-red-500/20 md:text-red-400 md:opacity-0 md:group-hover:translate-x-0 md:group-hover:opacity-100 md:group-focus-within:translate-x-0 md:group-focus-within:opacity-100"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 aria-hidden="true" className="h-4 w-4" />
           </button>
         )}
 
-        {/* Nota (Badge) com Glassmorphism Visual */}
         {showScore && (
-        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md border border-white/10 px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
-          <Star className={`w-3 h-3 ${score ? 'text-yellow-400 fill-yellow-400' : 'text-text-secondary fill-transparent'}`} />
-          <span className="text-white text-xs font-bold">{score != null ? score : 'N/A'}</span>
-        </div>
+          <div className="absolute right-2 top-2 flex items-center gap-1 rounded-md border border-white/10 bg-black/70 px-2 py-1 text-white shadow-sm backdrop-blur-md" aria-label={score != null ? `Nota ${score}` : 'Sem nota'}>
+            <Star aria-hidden="true" className={`h-3 w-3 ${score ? 'fill-yellow-400 text-yellow-400' : 'fill-transparent text-white/70'}`} />
+            <span className="text-xs font-bold">{score != null ? score : 'N/A'}</span>
+          </div>
         )}
       </div>
 
-      {/* Título e Gênero */}
-      <div className="space-y-1">
-        <h3 className="text-text-primary font-bold truncate group-hover:text-primary transition-colors duration-300">
-          {title}
-        </h3>
-        <p className="text-text-secondary text-xs truncate">
-          {genre}
-        </p>
-      </div>
-    </Link>
+      <Link to={`/anime/${id}`} className="block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+        <h3 className="truncate font-bold text-text-primary transition-colors duration-300 group-hover:text-primary">{title}</h3>
+        {genreLabel && <p className="mt-1 truncate text-xs text-text-secondary">{genreLabel}</p>}
+      </Link>
+    </article>
   );
 }

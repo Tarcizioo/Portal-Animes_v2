@@ -1,20 +1,29 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Users, UserCheck, Loader2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+    AlertCircle,
+    Loader2,
+    RefreshCw,
+    UserCheck,
+    UserPlus,
+    UserRound,
+    Users,
+    X,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useFollowList } from '@/hooks/useFollowList';
 import { useFollow } from '@/hooks/useFollow';
+import { useAccessibleDialog } from '@/hooks/useAccessibleDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 
-// ── Single row in the list ─────────────────────────────────────────────────────
-function FollowRow({ uid, displayName, photoURL }) {
+function FollowRow({ uid, displayName, photoURL, onNavigate }) {
     const { user } = useAuth();
     const { isFollowing, loading, mutating, follow, unfollow } = useFollow(uid);
     const { toast } = useToast();
     const isOwnRow = user?.uid === uid;
+    const safeName = displayName || 'Usuário';
 
     const handleToggle = async () => {
         try {
@@ -31,122 +40,163 @@ function FollowRow({ uid, displayName, photoURL }) {
     };
 
     return (
-        <div className="flex items-center justify-between gap-3 py-3 border-b border-border-color last:border-0">
-            <Link to={`/u/${uid}`} className="flex items-center gap-3 min-w-0 group">
-                <img
-                    src={photoURL || `https://placehold.co/40x40/6366f1/FFF?text=${(displayName?.[0] || '?').toUpperCase()}`}
-                    alt={displayName}
-                    className="w-10 h-10 rounded-full object-cover border border-border-color flex-shrink-0 group-hover:border-button-accent/50 transition-colors"
-                />
-                <span className="text-sm font-semibold text-text-primary truncate group-hover:text-button-accent transition-colors">
-                    {displayName || 'Usuário'}
+        <div className="flex min-w-0 items-center justify-between gap-3 border-b border-border-color py-3 last:border-0">
+            <Link to={`/u/${uid}`} onClick={onNavigate} className="group flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-button-accent">
+                <span className="relative grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full border border-border-color bg-bg-tertiary text-text-secondary transition-colors group-hover:border-button-accent/50">
+                    <UserRound className="h-5 w-5" aria-hidden="true" />
+                    {photoURL ? (
+                        <img
+                            src={photoURL}
+                            alt=""
+                            loading="lazy"
+                            referrerPolicy="no-referrer"
+                            onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                            className="absolute inset-0 h-full w-full object-cover"
+                        />
+                    ) : null}
                 </span>
+                <span className="truncate text-sm font-semibold text-text-primary transition-colors group-hover:text-button-accent">{safeName}</span>
             </Link>
 
-            {user && !isOwnRow && (
+            {user && !isOwnRow ? (
                 <button
+                    type="button"
                     onClick={handleToggle}
                     disabled={loading || mutating}
-                    className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                    aria-label={isFollowing ? `Deixar de seguir ${safeName}` : `Seguir ${safeName}`}
+                    className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-colors ${
                         isFollowing
-                            ? 'bg-bg-tertiary border-border-color text-text-secondary hover:border-red-500/40 hover:text-red-400'
-                            : 'bg-button-accent border-transparent text-text-on-primary hover:opacity-90'
-                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                            ? 'border-border-color bg-bg-tertiary text-text-secondary hover:border-red-500/40 hover:text-red-400'
+                            : 'border-transparent bg-button-accent text-text-on-primary hover:opacity-90'
+                    } disabled:cursor-not-allowed disabled:opacity-40`}
                 >
-                    {mutating
-                        ? <Loader2 className="w-3 h-3 animate-spin" />
-                        : isFollowing
-                            ? <><UserCheck className="w-3 h-3" /><span>Seguindo</span></>
-                            : <span>+ Seguir</span>
-                    }
+                    {mutating ? (
+                        <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /><span className="sr-only">Atualizando</span></>
+                    ) : isFollowing ? (
+                        <><UserCheck className="h-3.5 w-3.5" aria-hidden="true" /><span>Seguindo</span></>
+                    ) : (
+                        <><UserPlus className="h-3.5 w-3.5" aria-hidden="true" /><span>Seguir</span></>
+                    )}
                 </button>
-            )}
+            ) : null}
         </div>
     );
 }
 
-// ── Modal ──────────────────────────────────────────────────────────────────────
 export function FollowersModal({ isOpen, onClose, uid, initialTab = 'followers' }) {
     const [activeTab, setActiveTab] = useState(initialTab);
+    const dialogRef = useRef(null);
+    const closeButtonRef = useRef(null);
+    useAccessibleDialog({ isOpen, onClose, dialogRef, initialFocusRef: closeButtonRef });
 
+    const {
+        list: followers,
+        loading: loadingFollowers,
+        error: followersError,
+        retry: retryFollowers,
+    } = useFollowList(uid, 'followers');
+    const {
+        list: following,
+        loading: loadingFollowing,
+        error: followingError,
+        retry: retryFollowing,
+    } = useFollowList(uid, 'following');
 
-    const { list: followers, loading: loadingFollowers } = useFollowList(uid, 'followers');
-    const { list: following, loading: loadingFollowing } = useFollowList(uid, 'following');
+    const isFollowersTab = activeTab === 'followers';
+    const active = isFollowersTab ? followers : following;
+    const isLoading = isFollowersTab ? loadingFollowers : loadingFollowing;
+    const error = isFollowersTab ? followersError : followingError;
+    const retry = isFollowersTab ? retryFollowers : retryFollowing;
 
-    const active = activeTab === 'followers' ? followers : following;
-    const isLoading = activeTab === 'followers' ? loadingFollowers : loadingFollowing;
-
-    if (!isOpen) return null;
+    if (!isOpen || typeof document === 'undefined') return null;
 
     return createPortal(
         <AnimatePresence>
-            {isOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-                    {/* Backdrop */}
-                    <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                        onClick={onClose}
-                    />
+            <div className="fixed inset-0 z-[200] flex items-end justify-center p-0 sm:items-center sm:p-4">
+                <motion.div
+                    ref={dialogRef}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 bg-black/75 backdrop-blur-sm"
+                    onClick={onClose}
+                />
 
-                    {/* Panel */}
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                        animate={{ opacity: 1, scale: 1,    y: 0  }}
-                        exit={{   opacity: 0, scale: 0.95, y: 10 }}
-                        transition={{ duration: 0.2 }}
-                        className="relative z-10 bg-bg-secondary border border-border-color rounded-2xl shadow-2xl w-full max-w-md h-[560px] flex flex-col"
-                    >
-                        {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b border-border-color flex-shrink-0">
-                            <div className="flex gap-1 bg-bg-tertiary rounded-xl p-1">
-                                {['followers', 'following'].map(tab => (
-                                    <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-all ${
-                                            activeTab === tab
-                                                ? 'bg-button-accent text-text-on-primary shadow'
-                                                : 'text-text-secondary hover:text-text-primary'
-                                        }`}
-                                    >
-                                        {tab === 'followers' ? 'Seguidores' : 'Seguindo'}
-                                    </button>
-                                ))}
+                <motion.div
+                    initial={{ opacity: 0, y: 28 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 28 }}
+                    transition={{ duration: 0.2 }}
+                    className="relative z-10 flex h-[78dvh] max-h-[640px] w-full min-w-0 max-w-md flex-col overflow-hidden rounded-t-3xl border border-border-color bg-bg-secondary shadow-2xl sm:h-[560px] sm:rounded-3xl"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="followers-modal-title"
+                    tabIndex={-1}
+                >
+                    <div className="mx-auto mt-2 h-1 w-12 shrink-0 rounded-full bg-border-color sm:hidden" aria-hidden="true" />
+                    <header className="flex min-w-0 shrink-0 items-center gap-2 border-b border-border-color p-3 sm:p-4">
+                        <h2 id="followers-modal-title" className="sr-only">Seguidores e seguindo</h2>
+                        <div className="grid min-w-0 flex-1 grid-cols-2 rounded-xl bg-bg-tertiary p-1">
+                            {[
+                                { id: 'followers', label: 'Seguidores' },
+                                { id: 'following', label: 'Seguindo' },
+                            ].map((tab) => (
+                                <button
+                                    key={tab.id}
+                                    type="button"
+                                    onClick={() => setActiveTab(tab.id)}
+                                    aria-pressed={activeTab === tab.id}
+                                    className={`min-h-11 rounded-lg px-2 text-sm font-semibold transition-colors ${
+                                        activeTab === tab.id
+                                            ? 'bg-button-accent text-text-on-primary shadow'
+                                            : 'text-text-secondary hover:text-text-primary'
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            ))}
+                        </div>
+                        <button ref={closeButtonRef} type="button" onClick={onClose} aria-label="Fechar seguidores" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-button-accent">
+                            <X className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                    </header>
+
+                    <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2" aria-live="polite">
+                        {isLoading ? (
+                            <div className="grid min-h-48 place-items-center" aria-label="Carregando conexões">
+                                <Loader2 className="h-6 w-6 animate-spin text-text-secondary" aria-hidden="true" />
                             </div>
-                            <button onClick={onClose} className="p-2 hover:bg-bg-tertiary rounded-lg transition-colors text-text-secondary hover:text-text-primary">
-                                <X className="w-4 h-4" />
-                            </button>
-                        </div>
-
-                        {/* List */}
-                        <div className="overflow-y-auto px-4 flex-1 py-2">
-                            {isLoading ? (
-                                <div className="flex justify-center items-center py-10">
-                                    <Loader2 className="w-6 h-6 animate-spin text-text-secondary" />
+                        ) : error ? (
+                            <div role="alert" className="grid min-h-52 place-items-center rounded-2xl border border-dashed border-red-500/25 bg-red-500/5 px-6 text-center">
+                                <div>
+                                    <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-red-500/10 text-red-400"><AlertCircle className="h-5 w-5" aria-hidden="true" /></span>
+                                    <h3 className="mt-4 font-black text-text-primary">Não foi possível carregar esta lista</h3>
+                                    <p className="mt-1 text-sm text-text-secondary">A conexão social não respondeu. Tente novamente.</p>
+                                    <button type="button" onClick={retry} className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-color bg-bg-tertiary px-4 text-xs font-black text-text-primary hover:border-button-accent/40">
+                                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Tentar novamente
+                                    </button>
                                 </div>
-                            ) : active.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center py-12 text-text-secondary gap-3">
-                                    <Users className="w-10 h-10 opacity-30" />
-                                    <p className="text-sm">
-                                        {activeTab === 'followers' ? 'Nenhum seguidor ainda.' : 'Não segue ninguém ainda.'}
-                                    </p>
-                                </div>
-                            ) : (
-                                active.map(item => (
-                                    <FollowRow
-                                        key={item.uid}
-                                        uid={item.uid}
-                                        displayName={item.displayName}
-                                        photoURL={item.photoURL}
-                                    />
-                                ))
-                            )}
-                        </div>
-                    </motion.div>
-                </div>
-            )}
+                            </div>
+                        ) : active.length === 0 ? (
+                            <div className="flex min-h-52 flex-col items-center justify-center gap-3 text-center text-text-secondary">
+                                <Users className="h-10 w-10 opacity-30" aria-hidden="true" />
+                                <p className="text-sm">{isFollowersTab ? 'Nenhum seguidor ainda.' : 'Este perfil ainda não segue ninguém.'}</p>
+                            </div>
+                        ) : (
+                            active.map((item) => (
+                                <FollowRow
+                                    key={item.uid}
+                                    uid={item.uid}
+                                    displayName={item.displayName}
+                                    photoURL={item.photoURL}
+                                    onNavigate={onClose}
+                                />
+                            ))
+                        )}
+                    </div>
+                </motion.div>
+            </div>
         </AnimatePresence>,
-        document.body
+        document.body,
     );
 }

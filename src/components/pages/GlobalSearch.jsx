@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { usePageTitle } from '@/hooks/usePageTitle';
 import { anilistApi } from '@/services/anilistApi';
 import { ViewToggle } from '@/components/ui/ViewToggle';
-import { LayoutGrid, List, Search, Loader2 } from 'lucide-react';
+import { Building2, Clapperboard, Drama, LayoutGrid, List, Loader2, Mic2, Search } from 'lucide-react';
 import { AnimeCard } from '@/components/ui/AnimeCard';
 import { AnimeListItem } from '@/components/ui/AnimeListItem';
 import { CharacterCard } from '@/components/ui/CharacterCard';
@@ -23,11 +23,20 @@ const CATEGORIES = [
     { value: 'studio', label: 'Estúdios' }
 ];
 
+const SEARCH_LABELS = {
+    all: 'Buscar em todo o catálogo',
+    anime: 'Buscar animes',
+    character: 'Buscar personagens',
+    person: 'Buscar pessoas',
+    studio: 'Buscar estúdios',
+};
+
 export function GlobalSearch() {
     const [searchParams, setSearchParams] = useSearchParams();
 
     const query = searchParams.get('q') || '';
     const activeTab = searchParams.get('type') || 'all';
+    const searchLabel = SEARCH_LABELS[activeTab] || SEARCH_LABELS.all;
 
     const [loading, setLoading] = useState(false);
     
@@ -47,6 +56,14 @@ export function GlobalSearch() {
 
     const handleTabChange = (val) => {
         setSearchParams({ q: query, type: val });
+    };
+
+    const handleSearchSubmit = (event) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
+        const nextQuery = String(formData.get('global-search-query') || '').trim();
+        if (!nextQuery) return;
+        setSearchParams({ q: nextQuery, type: activeTab });
     };
 
     useEffect(() => {
@@ -168,6 +185,25 @@ export function GlobalSearch() {
                     )}
                 </h1>
                 <p className="text-text-secondary">Encontre animes, personagens, dubladores e estúdios em um só lugar.</p>
+
+                <form onSubmit={handleSearchSubmit} className="mt-6 flex max-w-3xl flex-col gap-2 sm:flex-row" role="search">
+                    <label htmlFor="global-search-query" className="sr-only">{searchLabel}</label>
+                    <div className="relative min-w-0 flex-1">
+                        <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
+                        <input
+                            key={`${activeTab}:${query}`}
+                            id="global-search-query"
+                            name="global-search-query"
+                            type="search"
+                            defaultValue={query}
+                            placeholder={searchLabel}
+                            className="min-h-12 w-full rounded-xl border-2 border-border-color bg-bg-secondary py-3 pl-12 pr-4 text-base font-semibold text-text-primary outline-none transition-colors placeholder:font-normal placeholder:text-text-secondary/65 focus:border-primary focus:ring-4 focus:ring-primary/10"
+                        />
+                    </div>
+                    <button type="submit" className="inline-flex min-h-12 items-center justify-center rounded-xl bg-primary px-6 text-sm font-black text-white transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary">
+                        Buscar
+                    </button>
+                </form>
             </div>
 
             {/* Results Area */}
@@ -214,7 +250,11 @@ export function GlobalSearch() {
                             {/* ALL / ANIME SECTION */}
                             {(activeTab === 'all' || activeTab === 'anime') && animeResults.length > 0 && (
                                 <section>
-                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">🎬 Animes <span className="text-sm font-normal text-text-secondary bg-bg-secondary px-2 py-0.5 rounded-full">{animeResults.length}</span></h2>
+                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                                        <Clapperboard aria-hidden="true" className="h-6 w-6 text-primary" />
+                                        Animes
+                                        <span className="text-sm font-normal text-text-secondary bg-bg-secondary px-2 py-0.5 rounded-full">{animeResults.length}</span>
+                                    </h2>
                                     {renderGrid(animeResults, 'anime')}
                                 </section>
                             )}
@@ -222,7 +262,11 @@ export function GlobalSearch() {
                             {/* ALL / CHARACTER SECTION */}
                             {(activeTab === 'all' || activeTab === 'character') && characterResults.length > 0 && (
                                 <section>
-                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">🎭 Personagens <span className="text-sm font-normal text-text-secondary bg-bg-secondary px-2 py-0.5 rounded-full">{characterResults.length}</span></h2>
+                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                                        <Drama aria-hidden="true" className="h-6 w-6 text-primary" />
+                                        Personagens
+                                        <span className="text-sm font-normal text-text-secondary bg-bg-secondary px-2 py-0.5 rounded-full">{characterResults.length}</span>
+                                    </h2>
                                     {renderGrid(characterResults, 'character')}
                                 </section>
                             )}
@@ -230,7 +274,11 @@ export function GlobalSearch() {
                             {/* ALL / PERSON SECTION */}
                             {(activeTab === 'all' || activeTab === 'person') && personResults.length > 0 && (
                                 <section>
-                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">🎙️ Pessoas <span className="text-sm font-normal text-text-secondary bg-bg-secondary px-2 py-0.5 rounded-full">{personResults.length}</span></h2>
+                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                                        <Mic2 aria-hidden="true" className="h-6 w-6 text-primary" />
+                                        Pessoas
+                                        <span className="text-sm font-normal text-text-secondary bg-bg-secondary px-2 py-0.5 rounded-full">{personResults.length}</span>
+                                    </h2>
                                     {renderGrid(personResults, 'person')}
                                 </section>
                             )}
@@ -238,7 +286,11 @@ export function GlobalSearch() {
                             {/* ALL / STUDIO SECTION */}
                             {(activeTab === 'all' || activeTab === 'studio') && studioResults.length > 0 && (
                                 <section>
-                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">🏢 Estúdios <span className="text-sm font-normal text-text-secondary bg-bg-secondary px-2 py-0.5 rounded-full">{studioResults.length}</span></h2>
+                                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                                        <Building2 aria-hidden="true" className="h-6 w-6 text-primary" />
+                                        Estúdios
+                                        <span className="text-sm font-normal text-text-secondary bg-bg-secondary px-2 py-0.5 rounded-full">{studioResults.length}</span>
+                                    </h2>
                                     {renderGrid(studioResults, 'studio')}
                                 </section>
                             )}
@@ -258,8 +310,8 @@ export function GlobalSearch() {
             ) : (
                 <div className="flex flex-col items-center justify-center py-32 text-center opacity-60">
                     <Search className="w-20 h-20 text-text-secondary mb-6" />
-                    <h2 className="text-2xl font-bold text-text-primary">Pronto para buscar</h2>
-                    <p className="text-lg text-text-secondary">Digite algo na barra de pesquisa acima para começar.</p>
+                    <h2 className="text-2xl font-bold text-text-primary">{searchLabel}</h2>
+                    <p className="text-lg text-text-secondary">Digite um nome no campo acima para começar.</p>
                 </div>
             )}
         </div>

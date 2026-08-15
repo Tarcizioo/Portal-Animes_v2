@@ -5,7 +5,7 @@ import { ResponsiveImage } from '@/components/ui/ResponsiveImage';
 
 const STATUS_CONFIG = {
   watching: { label: 'Assistindo', color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-  completed: { label: 'Completo', color: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
+  completed: { label: 'Concluído', color: 'text-sky-400 bg-sky-500/10 border-sky-500/20' },
   plan_to_watch: { label: 'Planejado', color: 'text-zinc-300 bg-zinc-500/10 border-zinc-500/20' },
   paused: { label: 'Pausado', color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
   dropped: { label: 'Dropado', color: 'text-red-400 bg-red-500/10 border-red-500/20' },
@@ -32,8 +32,8 @@ export function ProfileActivity({ library, libraryPath, isOwnProfile = false }) 
   ), [library]);
 
   return (
-    <section className="rounded-2xl border border-border-color bg-bg-secondary p-4 sm:p-6" aria-labelledby="recent-activity-title">
-      <div className="mb-5 flex items-center justify-between gap-4">
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-border-color bg-bg-secondary p-4 sm:p-6" aria-labelledby="recent-activity-title">
+      <div className="mb-5 flex min-w-0 items-center justify-between gap-2 sm:gap-4">
         <div>
           <span className="text-xs font-black uppercase tracking-[0.16em] text-button-accent">Linha do tempo</span>
           <h3 id="recent-activity-title" className="mt-1 flex items-center gap-2 font-bold text-text-primary">
@@ -41,7 +41,7 @@ export function ProfileActivity({ library, libraryPath, isOwnProfile = false }) 
             Atividade recente
           </h3>
         </div>
-        <Link to={libraryPath} className="group flex items-center gap-1.5 text-xs font-bold text-button-accent hover:text-text-primary">
+        <Link to={libraryPath} className="group inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2 text-xs font-bold text-button-accent hover:bg-button-accent/10 hover:text-text-primary">
           Ver biblioteca
           <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
         </Link>
@@ -52,7 +52,7 @@ export function ProfileActivity({ library, libraryPath, isOwnProfile = false }) 
           <Clock3 className="mx-auto h-8 w-8 text-text-secondary/50" aria-hidden="true" />
           <p className="mt-3 font-bold text-text-primary">Nenhuma atividade por enquanto</p>
           <p className="mt-1 text-sm text-text-secondary">
-            {isOwnProfile ? 'Adicione um anime ou atualize um episodio para iniciar sua linha do tempo.' : 'As proximas atualizacoes da biblioteca aparecerao aqui.'}
+            {isOwnProfile ? 'Adicione um anime ou atualize um episódio para iniciar sua linha do tempo.' : 'As próximas atualizações da biblioteca aparecerão aqui.'}
           </p>
         </div>
       ) : (
@@ -64,7 +64,7 @@ export function ProfileActivity({ library, libraryPath, isOwnProfile = false }) 
             const progress = totalEpisodes > 0 ? Math.min(100, Math.round((currentEpisode / totalEpisodes) * 100)) : 0;
 
             return (
-              <Link key={anime.id} to={`/anime/${anime.id}`} className="group flex gap-3 rounded-xl border border-border-color bg-bg-primary/35 p-3 transition-colors hover:border-primary/40 hover:bg-bg-tertiary/50">
+              <Link key={anime.id} to={`/anime/${anime.id}`} className="group flex min-w-0 gap-3 overflow-hidden rounded-xl border border-border-color bg-bg-primary/35 p-3 transition-colors hover:border-primary/40 hover:bg-bg-tertiary/50">
                 <div className="h-24 w-16 shrink-0 overflow-hidden rounded-lg bg-bg-tertiary">
                   <ResponsiveImage src={anime.image || anime.smallImage} alt={anime.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" sizes="64px" />
                 </div>
@@ -74,7 +74,7 @@ export function ProfileActivity({ library, libraryPath, isOwnProfile = false }) 
                   {totalEpisodes > 0 && (
                     <div className="mt-auto pt-2">
                       <div className="mb-1 flex justify-between text-[10px] text-text-secondary">
-                        <span>{currentEpisode}/{totalEpisodes} eps</span>
+                        <span>{currentEpisode}/{totalEpisodes} episódios</span>
                         <span>{progress}%</span>
                       </div>
                       <div className="h-1 overflow-hidden rounded-full bg-bg-tertiary" role="progressbar" aria-label={`Progresso de ${anime.title}`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}>

@@ -10,7 +10,7 @@ import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 const MAL_STATUS_MAP = {
     'Watching':       'watching',
     'Completed':      'completed',
-    'On-Hold':        'on_hold',
+    'On-Hold':        'paused',
     'Dropped':        'dropped',
     'Plan to Watch':  'plan_to_watch',
 };

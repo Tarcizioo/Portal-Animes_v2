@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { StudioArtwork } from '@/components/ui/StudioArtwork';
 
 export function StudioListItem({ studio, rank }) {
     const navigate = useNavigate();
@@ -19,14 +20,7 @@ export function StudioListItem({ studio, rank }) {
 
             {/* Avatar */}
             <div className="w-24 h-16 flex-shrink-0 rounded-lg overflow-hidden shadow-sm relative">
-                <img
-                    src={studio.image || studio.images?.jpg?.image_url || '/placeholder-studio.png'}
-                    alt={studio.title || studio.name || 'Estúdio'}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/300x170?text=Sem+Imagem';
-                    }}
-                />
+                <StudioArtwork studio={studio} compact className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
             </div>
 
             {/* Info */}

@@ -26,8 +26,10 @@ describe('LibraryAnimeItem', () => {
     const onStatusChange = vi.fn().mockResolvedValue(undefined);
     render(<LibraryAnimeItem anime={anime} viewMode="grid" onIncrement={onIncrement} onStatusChange={onStatusChange} />);
 
-    await user.click(screen.getByRole('button', { name: /adicionar um episodio/i }));
+    await user.click(screen.getByRole('button', { name: /adicionar um episódio/i }));
     await waitFor(() => expect(onIncrement).toHaveBeenCalledWith('1', 4, 26));
+
+    expect(screen.getByRole('progressbar', { name: /progresso de cowboy bebop/i })).toHaveAttribute('aria-valuetext', '4 de 26 episódios');
 
     await user.selectOptions(screen.getByRole('combobox', { name: /status de cowboy bebop/i }), 'paused');
     await waitFor(() => expect(onStatusChange).toHaveBeenCalledWith('1', 'paused', 26));
@@ -43,6 +45,6 @@ describe('LibraryAnimeItem', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /ja foi concluido/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /já foi concluído/i })).toBeDisabled();
   });
 });

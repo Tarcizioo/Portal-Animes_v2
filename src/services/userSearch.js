@@ -37,7 +37,7 @@ export function mergePublicUserSnapshots(settledSnapshots, searchTerm) {
   successfulSnapshots.forEach((snapshot) => {
     snapshot.docs.forEach((userDoc) => {
       const user = { uid: userDoc.id, ...userDoc.data() };
-      if (user.isPublic !== false && !usersById.has(userDoc.id)) {
+      if (user.isPublic === true && !usersById.has(userDoc.id)) {
         usersById.set(userDoc.id, user);
       }
     });
@@ -71,6 +71,7 @@ export async function searchPublicUsers(searchTerm) {
   ];
   const searches = querySpecs.map(([field, value]) => getDocs(query(
     usersRef,
+    where('isPublic', '==', true),
     where(field, '>=', value),
     where(field, '<=', `${value}\uf8ff`),
     limit(20),

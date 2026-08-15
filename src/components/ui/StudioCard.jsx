@@ -1,19 +1,12 @@
 import { Link } from 'react-router-dom';
+import { StudioArtwork } from '@/components/ui/StudioArtwork';
 
 export function StudioCard({ studio, rank }) {
     return (
         <Link to={`/studio/${studio.id || studio.mal_id}`} className="block group relative bg-bg-secondary rounded-2xl overflow-hidden shadow-sm border border-border-color hover:border-primary/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
             {/* Imagem */}
             <div className="aspect-[16/9] overflow-hidden relative">
-                <img
-                    src={studio.image || studio.images?.webp?.image_url || studio.images?.jpg?.image_url || '/placeholder-studio.png'}
-                    alt={studio.title || studio.name || 'Estúdio'}
-                    loading="lazy"
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    onError={(e) => {
-                        e.target.src = 'https://via.placeholder.com/300x170?text=Sem+Imagem';
-                    }}
-                />
+                <StudioArtwork studio={studio} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
 
                 {/* Gradient Overlay for visual consistency */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />

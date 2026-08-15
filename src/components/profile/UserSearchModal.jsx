@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
     AlertCircle,
     ArrowUpRight,
@@ -29,7 +29,8 @@ function getInitials(profile) {
 }
 
 export function UserSearchModal({ isOpen, onClose }) {
-    const { user: currentUser, signInGoogle } = useAuth();
+    const { user: currentUser } = useAuth();
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [debouncedTerm, setDebouncedTerm] = useState('');
     const [results, setResults] = useState([]);
@@ -37,7 +38,6 @@ export function UserSearchModal({ isOpen, onClose }) {
     const [error, setError] = useState(null);
     const [partialFailure, setPartialFailure] = useState(false);
     const [retryToken, setRetryToken] = useState(0);
-    const [signingIn, setSigningIn] = useState(false);
     const requestSequence = useRef(0);
 
     useEffect(() => {
@@ -47,22 +47,23 @@ export function UserSearchModal({ isOpen, onClose }) {
 
     useEffect(() => {
         if (!isOpen || !currentUser || debouncedTerm.length < 2) {
-            setResults([]);
-            setLoading(false);
-            setError(null);
-            setPartialFailure(false);
             return undefined;
         }
 
         const requestId = ++requestSequence.current;
         let active = true;
-        setLoading(true);
-        setError(null);
-        setPartialFailure(false);
 
-        searchPublicUsers(debouncedTerm)
-            .then(({ users, partialFailure: hasPartialFailure }) => {
-                if (!active || requestId !== requestSequence.current) return;
+        Promise.resolve()
+            .then(() => {
+                if (!active || requestId !== requestSequence.current) return null;
+                setLoading(true);
+                setError(null);
+                setPartialFailure(false);
+                return searchPublicUsers(debouncedTerm);
+            })
+            .then((response) => {
+                if (!response || !active || requestId !== requestSequence.current) return;
+                const { users, partialFailure: hasPartialFailure } = response;
                 setResults(users);
                 setPartialFailure(hasPartialFailure);
             })
@@ -81,36 +82,30 @@ export function UserSearchModal({ isOpen, onClose }) {
         };
     }, [currentUser, debouncedTerm, isOpen, retryToken]);
 
-    useEffect(() => {
-        if (isOpen) return;
-
+    const handleClose = () => {
         requestSequence.current += 1;
         setSearchTerm('');
         setDebouncedTerm('');
         setResults([]);
+        setLoading(false);
         setError(null);
         setPartialFailure(false);
-        setSigningIn(false);
-    }, [isOpen]);
-
-    const handleSignIn = async () => {
-        setSigningIn(true);
-        setError(null);
-        try {
-            await signInGoogle();
-        } catch {
-            setError('O login não foi concluído. Tente novamente quando quiser.');
-        } finally {
-            setSigningIn(false);
-        }
+        onClose();
     };
 
-    const showInitialState = debouncedTerm.length < 2 && !loading;
+    const handleSignIn = () => {
+        handleClose();
+        navigate('/login');
+    };
+
+    const searchReady = Boolean(currentUser) && debouncedTerm.length >= 2;
+    const searchLoading = searchReady && loading;
+    const showInitialState = debouncedTerm.length < 2 && !searchLoading;
 
     return (
         <Modal
             isOpen={isOpen}
-            onClose={onClose}
+            onClose={handleClose}
             size="xl"
             title={
                 <span className="flex items-center gap-2.5">
@@ -144,8 +139,8 @@ export function UserSearchModal({ isOpen, onClose }) {
                             className="h-14 w-full rounded-2xl bg-transparent pl-12 pr-24 text-sm font-semibold text-text-primary outline-none placeholder:font-normal placeholder:text-text-secondary/55 disabled:cursor-not-allowed"
                         />
                         <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
-                            {loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                            {searchTerm && !loading && (
+                            {searchLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                            {searchTerm && !searchLoading && (
                                 <button
                                     type="button"
                                     onClick={() => setSearchTerm('')}
@@ -176,11 +171,9 @@ export function UserSearchModal({ isOpen, onClose }) {
                             <button
                                 type="button"
                                 onClick={handleSignIn}
-                                disabled={signingIn}
-                                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60"
+                                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 transition-transform hover:-translate-y-0.5"
                             >
-                                {signingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogIn className="h-4 w-4" />}
-                                {signingIn ? 'Conectando...' : 'Entrar com Google'}
+                                <LogIn className="h-4 w-4" /> Entrar ou criar conta
                             </button>
                             {error && <p className="mt-3 text-xs font-semibold text-red-400">{error}</p>}
                         </div>
@@ -192,7 +185,7 @@ export function UserSearchModal({ isOpen, onClose }) {
                                 <ShieldCheck className="h-4 w-4 text-emerald-400" />
                                 Somente perfis públicos aparecem aqui
                             </div>
-                            {debouncedTerm.length >= 2 && !loading && !error && (
+                            {searchReady && !searchLoading && !error && (
                                 <span className="rounded-full border border-border-color bg-bg-tertiary/60 px-3 py-1 text-[11px] font-bold text-text-secondary">
                                     {results.length} {results.length === 1 ? 'perfil encontrado' : 'perfis encontrados'}
                                 </span>
@@ -205,7 +198,7 @@ export function UserSearchModal({ isOpen, onClose }) {
                             </div>
                         )}
 
-                        {loading ? (
+                        {searchLoading ? (
                             <div className="space-y-3" data-testid="user-search-loading">
                                 {Array.from({ length: 4 }).map((_, index) => (
                                     <div key={`user-skeleton-${index}`} className="flex animate-pulse items-center gap-4 rounded-2xl border border-border-color bg-bg-primary/30 p-3.5">
@@ -245,7 +238,7 @@ export function UserSearchModal({ isOpen, onClose }) {
                                         <Link
                                             key={profile.uid}
                                             to={`/u/${profile.uid}`}
-                                            onClick={onClose}
+                                            onClick={handleClose}
                                             className="group relative flex min-h-28 items-center gap-3.5 overflow-hidden rounded-2xl border border-border-color bg-bg-primary/40 p-3.5 text-inherit shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/45 hover:bg-bg-tertiary/65 hover:shadow-lg hover:shadow-primary/5"
                                         >
                                             <div className="relative grid h-14 w-14 flex-shrink-0 place-items-center overflow-hidden rounded-2xl border border-border-color bg-gradient-to-br from-primary/35 to-cyan-400/15 text-sm font-black text-text-primary group-hover:border-primary/50">

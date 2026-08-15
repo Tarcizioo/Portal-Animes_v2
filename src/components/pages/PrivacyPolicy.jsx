@@ -1,6 +1,3 @@
-import { Sidebar } from '@/components/layout/Sidebar';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
 import { usePageTitle } from '@/hooks/usePageTitle';
 
 export function PrivacyPolicy() {
@@ -22,21 +19,31 @@ export function PrivacyPolicy() {
                 <section>
                     <h2 className="text-xl font-bold text-text-primary mb-3">2. Coleta de Dados</h2>
                     <p>
-                        Atualmente, utilizamos o Firebase Authentication para login (Google). Coletamos apenas as informações básicas fornecidas por esse serviço (nome, e-mail e foto de perfil) para personalizar sua experiência.
-                        Não vendemos nem compartilhamos seus dados com terceiros.
+                        Utilizamos o Firebase Authentication para entrada por e-mail e senha ou por Google. O serviço processa os dados necessários à autenticação, como e-mail e, quando fornecidos, nome e foto.
+                        Sua senha é tratada pelo Firebase Authentication e nunca é armazenada nos documentos públicos do PortalAnimes. O e-mail também não é gravado no perfil público.
+                        Não vendemos seus dados.
                     </p>
                 </section>
 
                 <section>
-                    <h2 className="text-xl font-bold text-text-primary mb-3">3. Uso de Cookies e Armazenamento Local</h2>
+                    <h2 className="text-xl font-bold text-text-primary mb-3">3. Telemetria Opcional</h2>
+                    <p>
+                        A telemetria de produto permanece desativada por padrão e só usa o Firebase Analytics quando a implantação define explicitamente a flag de ativação e um ID de medição válido.
+                        Os eventos personalizados do Portal usam apenas IDs numéricos, ações, status, contagens e origens enumeradas; seus payloads não incluem e-mail, nome, título livre, texto livre ou senha.
+                        Quando habilitado, o próprio Firebase Analytics também pode processar dados técnicos e eventos automáticos, como página acessada, sessão, navegador, dispositivo e localização aproximada, conforme a configuração do projeto Firebase.
+                    </p>
+                </section>
+
+                <section>
+                    <h2 className="text-xl font-bold text-text-primary mb-3">4. Uso de Cookies e Armazenamento Local</h2>
                     <p>
                         Utilizamos `localStorage` do seu navegador para salvar preferências simples, como o estado da barra lateral (expandida/colapsada) e filtros do catálogo.
-                        Não utilizamos cookies de rastreamento invasivos.
+                        Com a telemetria desativada, o Portal não adiciona rastreamento analítico. Quando o Firebase Analytics é habilitado pela implantação, ele pode usar cookies ou identificadores locais necessários à medição.
                     </p>
                 </section>
 
                 <section>
-                    <h2 className="text-xl font-bold text-text-primary mb-3">4. Conteúdo Externo</h2>
+                    <h2 className="text-xl font-bold text-text-primary mb-3">5. Conteúdo Externo</h2>
                     <p>
                         Este site utiliza a API pública da AniList para exibir informações. Imagens e metadados pertencem aos respectivos autores, estúdios e provedores.
                         Não hospedamos vídeos ou conteudos piratas.
@@ -44,7 +51,7 @@ export function PrivacyPolicy() {
                 </section>
 
                 <section>
-                    <h2 className="text-xl font-bold text-text-primary mb-3">5. Contato</h2>
+                    <h2 className="text-xl font-bold text-text-primary mb-3">6. Contato</h2>
                     <p>
                         Se tiver dúvidas sobre esta política, entre em contato através das redes sociais linkadas no rodapé.
                     </p>

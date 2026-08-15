@@ -253,6 +253,14 @@ a,
   border-radius: 4px;
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Contextual shell: transparent over immersive artwork, glass elsewhere. */
 .app-header {
   isolation: isolate;
@@ -590,9 +598,8 @@ button.hero-action--secondary:hover {
     top: -5rem;
     right: -4rem;
     left: -4rem;
-    height: min(58rem, calc(100vh + 7rem));
-    height: min(58rem, calc(100svh + 7rem));
-    opacity: 0.78;
+    height: 36rem;
+    opacity: 0.1;
   }
 
   .app-ambient-backdrop__image {
@@ -600,6 +607,14 @@ button.hero-action--secondary:hover {
     width: calc(100% + 6rem);
     height: calc(100% + 6rem);
     filter: blur(46px) brightness(0.56) saturate(1.05);
+  }
+
+  [data-layout-main] {
+    scrollbar-width: none;
+  }
+
+  [data-layout-main]::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -908,4 +923,191 @@ html[data-reduced-motion="true"] *::after {
   animation-iteration-count: 1 !important;
   scroll-behavior: auto !important;
   transition-duration: 1ms !important;
+}
+/* Dedicated authentication experience. */
+.auth-cover-showcase {
+  position: relative;
+  isolation: isolate;
+  min-height: 13.5rem;
+  overflow: hidden;
+  background: #090909;
+  contain: layout paint;
+}
+
+.auth-cover-grid {
+  position: absolute;
+  inset: -62% -10%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  opacity: 0.88;
+  filter: saturate(0.82) brightness(0.76);
+  transform: rotate(-7deg) scale(1.08);
+}
+
+.auth-cover-rail {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.auth-cover-track {
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.auth-cover-track--1 {
+  animation: auth-cover-scroll-up 38s linear infinite;
+}
+
+.auth-cover-track--2 {
+  animation: auth-cover-scroll-down 46s linear infinite;
+}
+
+.auth-cover-track--3 {
+  animation: auth-cover-scroll-up 42s linear -13s infinite;
+}
+
+.auth-cover-sequence {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+
+.auth-cover-card {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 55%),
+    var(--auth-cover-placeholder, #191919);
+  box-shadow: 0 16px 28px -18px rgba(0, 0, 0, 0.9);
+}
+
+.auth-cover-showcase.is-paused .auth-cover-track {
+  animation-play-state: paused;
+}
+
+@keyframes auth-cover-scroll-up {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, -50%, 0); }
+}
+
+@keyframes auth-cover-scroll-down {
+  from { transform: translate3d(0, -50%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+[data-auth-screen] section[aria-labelledby] {
+  --bg-primary: #0b0b0b;
+  --bg-secondary: #101010;
+  --bg-tertiary: #181818;
+  --text-primary: #fafafa;
+  --text-secondary: #a1a1aa;
+  --text-accent: #fafafa;
+  --button-accent: #fafafa;
+  --text-on-primary: #080808;
+  --border-color: rgba(255, 255, 255, 0.11);
+  --primary: #fafafa;
+  width: 100%;
+  max-width: 28rem;
+  margin: 0;
+  padding: 0;
+}
+
+[data-auth-screen] section[aria-labelledby] > div {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+[data-auth-screen] section[aria-labelledby] > div > .pointer-events-none,
+[data-auth-screen] section[aria-labelledby] aside,
+[data-auth-screen] section[aria-labelledby] aside + div > div > div:first-child {
+  display: none;
+}
+
+[data-auth-screen] section[aria-labelledby] > div > .relative.grid {
+  display: block;
+  min-height: 0;
+}
+
+[data-auth-screen] section[aria-labelledby] aside + div {
+  display: block;
+  padding: 0;
+}
+
+[data-auth-screen] section[aria-labelledby] aside + div > div {
+  max-width: none;
+}
+
+[data-auth-screen] section[aria-labelledby] [role="tab"][aria-selected="true"],
+[data-auth-screen] section[aria-labelledby] form > button[type="submit"] {
+  border-color: #fafafa;
+  background: #fafafa;
+  color: #080808;
+  box-shadow: 0 14px 30px -18px rgba(255, 255, 255, 0.6);
+}
+
+[data-auth-screen] section[aria-labelledby] [role="tab"][aria-selected="true"]:hover,
+[data-auth-screen] section[aria-labelledby] form > button[type="submit"]:hover {
+  border-color: #e4e4e7;
+  background: #e4e4e7;
+}
+
+@media (min-width: 1024px) {
+  .auth-cover-showcase {
+    min-height: 0;
+    margin: 0.75rem 0 0.75rem 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 1.5rem;
+  }
+
+  .auth-cover-grid {
+    inset: -16% -8%;
+    gap: 0.8rem;
+    transform: rotate(-5deg) scale(1.08);
+  }
+
+  .auth-cover-sequence {
+    gap: 0.85rem;
+    padding-bottom: 0.85rem;
+  }
+
+  .auth-cover-card {
+    border-radius: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-cover-track {
+    animation: none !important;
+    transform: translate3d(0, -8%, 0);
+    will-change: auto;
+  }
+
+  .auth-cover-toggle {
+    display: none;
+  }
+}
+
+html[data-reduced-motion="true"] .auth-cover-track {
+  animation: none !important;
+  transform: translate3d(0, -8%, 0);
+  will-change: auto;
+}
+
+html[data-reduced-motion="true"] .auth-cover-toggle {
+  display: none;
+}
+
+/* Prevent a tall sign-up form from being clipped when the viewport is short. */
+[data-auth-screen] > div > div:last-child > div:last-child {
+  align-items: safe center;
 }

@@ -34,6 +34,7 @@ async function fetchRecommendations(seedIds, libraryIds, signal) {
                 title: entry.title_english || entry.title,
                 image: entry.images?.webp?.large_image_url || entry.images?.jpg?.large_image_url,
                 images: entry.images,
+                episodes: entry.episodes || null,
                 score: entry.score,
                 votes: recommendation.votes || 0,
             };

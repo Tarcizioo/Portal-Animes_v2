@@ -57,7 +57,7 @@ export function ProfileConnections({ connections, onAdd, className }) {
         const handle = formatConnectionHandle(platform.id, value);
         const href = getConnectionHref(platform.id, value);
         const commonClass = clsx(
-          'group inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-xs font-bold text-text-primary transition-all hover:-translate-y-0.5',
+          'group inline-flex h-11 max-w-full items-center gap-2 rounded-xl border px-3 text-xs font-bold text-text-primary transition-all hover:-translate-y-0.5',
           platform.surface,
         );
         const content = (
@@ -87,7 +87,7 @@ export function ProfileConnections({ connections, onAdd, className }) {
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex h-10 items-center gap-2 rounded-xl border border-dashed border-border-color px-3 text-xs font-bold text-text-secondary transition-colors hover:border-button-accent/60 hover:text-button-accent"
+          className="inline-flex h-11 max-w-full items-center gap-2 rounded-xl border border-dashed border-border-color px-3 text-xs font-bold text-text-secondary transition-colors hover:border-button-accent/60 hover:text-button-accent"
         >
           {activeConnections.length > 0 ? <Plus className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
           {activeConnections.length > 0 ? 'Adicionar' : 'Conectar redes'}

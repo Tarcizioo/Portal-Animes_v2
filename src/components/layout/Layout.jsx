@@ -5,7 +5,6 @@ import { BottomNav } from '@/components/layout/BottomNav';
 import { Footer } from '@/components/layout/Footer';
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { OnboardingModal } from '@/components/profile/OnboardingModal';
 import { HeroAmbientProvider } from '@/context/HeroAmbientContext';
 import { usePresence } from '@/hooks/usePresence';
 
@@ -17,6 +16,7 @@ export function Layout({ children, showHeader = true, showFooter = true }) {
     const mainRef = useRef(null);
     const scrollFrameRef = useRef(null);
     const { pathname } = useLocation();
+    const isDedicatedAuthPath = pathname === '/login' || pathname === '/onboarding';
     const hasImmersiveHeader = isImmersiveHeaderPath(pathname);
     const [isHeroHeader, setIsHeroHeader] = useState(hasImmersiveHeader);
     const [ambientArtwork, setAmbientArtwork] = useState(null);
@@ -82,28 +82,33 @@ export function Layout({ children, showHeader = true, showFooter = true }) {
             >
                 <AmbientBackdrop artwork={ambientArtwork} isActive={isAmbientActive} />
 
-                <div className="app-sidebar-shell relative z-30 hidden md:flex">
-                    <Sidebar />
-                </div>
-
-                <OnboardingModal />
+                {isDedicatedAuthPath ? null : (
+                    <div className="app-sidebar-shell relative z-30 hidden md:flex"><Sidebar /></div>
+                )}
 
                 <main
                     ref={mainRef}
                     data-layout-main
-                    className="relative z-20 flex h-full w-full flex-1 flex-col overflow-y-auto scrollbar-thin scrollbar-thumb-surface-dark/20 hover:scrollbar-thumb-surface-dark/40"
+                    data-layout-variant={isDedicatedAuthPath ? 'auth' : 'default'}
+                    className={`relative z-20 flex h-full w-full flex-1 flex-col overflow-x-hidden overflow-y-auto scrollbar-thin scrollbar-thumb-surface-dark/20 hover:scrollbar-thumb-surface-dark/40 ${isDedicatedAuthPath ? '' : 'pb-[calc(6.5rem+env(safe-area-inset-bottom,0px))] md:pb-0'}`}
                     onScroll={handleMainScroll}
                 >
-                    {showHeader ? <Header isHeroMode={hasImmersiveHeader && isHeroHeader} /> : null}
+                    {showHeader && !isDedicatedAuthPath ? (
+                        <Header
+                            isHeroMode={hasImmersiveHeader && isHeroHeader}
+                            showMobileBrand={pathname === '/'}
+                            hideOnMobile={pathname === '/discover'}
+                        />
+                    ) : null}
 
-                    <div className="flex-1 pb-24 md:pb-0">
+                    <div className={isDedicatedAuthPath ? 'min-h-full flex-1' : 'flex-1'}>
                         {children}
                     </div>
 
-                    {showFooter ? <Footer /> : null}
+                    {showFooter && !isDedicatedAuthPath ? <Footer /> : null}
                 </main>
 
-                <BottomNav />
+                {isDedicatedAuthPath ? null : <BottomNav />}
             </div>
         </HeroAmbientProvider>
     );

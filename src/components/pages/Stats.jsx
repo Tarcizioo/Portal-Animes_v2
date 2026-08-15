@@ -1,8 +1,8 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-    Activity, BarChart3, CalendarDays, CheckCircle2, Clock3, Clapperboard,
-    Filter, Heart, Layers3, LibraryBig, RotateCcw, Sparkles, Star, Trophy, Tv,
+    Activity, BarChart3, CalendarDays, CheckCircle2, ChevronDown, Clapperboard,
+    Filter, Gauge, Heart, Layers3, LibraryBig, ListChecks, RotateCcw, Sparkles, Star, Trophy, WifiOff,
 } from 'lucide-react';
 import { motion as Motion } from 'framer-motion';
 
@@ -36,7 +36,7 @@ function countByStatus(library, status) {
 
 export function Stats() {
     usePageTitle('Estatísticas pessoais');
-    const { library, loading } = useAnimeLibrary();
+    const { library, loading, error, retry } = useAnimeLibrary();
     const [status, setStatus] = useState('all');
     const [year, setYear] = useState('all');
     const [format, setFormat] = useState('all');
@@ -61,6 +61,7 @@ export function Stats() {
     const topGenre = stats.genres[0];
     const topFormat = stats.types[0];
     const hasFilters = status !== 'all' || year !== 'all' || format !== 'all';
+    const hasScores = stats.scoreDistribution.some((score) => score.total > 0);
     const visibleGenres = showAllGenres ? stats.genres : stats.genres.slice(0, 8);
 
     const resetFilters = () => {
@@ -69,8 +70,16 @@ export function Stats() {
         setFormat('all');
     };
 
-    if (loading) return <div className="flex min-h-[65vh] items-center justify-center"><Loader /></div>;
+    if (loading) {
+        return (
+            <div role="status" aria-label="Carregando estatísticas da biblioteca" aria-live="polite" className="flex min-h-[65vh] items-center justify-center">
+                <Loader />
+                <span className="sr-only">Carregando estatísticas da biblioteca</span>
+            </div>
+        );
+    }
 
+    if (error) return <StatsError onRetry={retry} />;
     if (!library.length) return <EmptyStats />;
 
     return (
@@ -82,18 +91,19 @@ export function Stats() {
                 <div className="relative grid items-end gap-8 lg:grid-cols-[1fr_auto]">
                     <div className="max-w-3xl">
                         <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-200">
-                            <Sparkles className="h-3.5 w-3.5" /> Retrato da sua biblioteca
+                            <Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> Retrato da sua biblioteca
                         </span>
                         <h1 className="mt-4 text-3xl font-black leading-[0.95] tracking-[-0.04em] sm:text-5xl lg:text-6xl">
-                            Seu jeito de assistir,<br /><span className="text-cyan-300">traduzido em números.</span>
+                            Seus episódios e escolhas,<br /><span className="text-cyan-300">traduzidos em números.</span>
                         </h1>
                         <p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
-                            Entenda o ritmo da sua jornada, os gêneros que mais aparecem e como suas escolhas se distribuem pela coleção.
+                            Entenda seu progresso por episódio, os gêneros que mais aparecem e como suas escolhas se distribuem pela coleção.
                         </p>
                     </div>
                     <div className="grid grid-cols-2 gap-3 sm:flex">
-                        <HeroMetric label="Conclusão" value={`${completionRate}%`} />
-                        <HeroMetric label="Em andamento" value={watchingCount} />
+                        <HeroMetric label="Episódios" value={stats.overview.totalEpisodes.toLocaleString('pt-BR')} />
+                        <HeroMetric label="Progresso" value={stats.overview.availableEpisodes > 0 ? `${stats.overview.episodeProgress}%` : '—'} />
+                        <HeroMetric label="Assistindo" value={watchingCount} />
                     </div>
                 </div>
             </section>
@@ -116,10 +126,18 @@ export function Stats() {
                 <NoFilteredResults onReset={resetFilters} />
             ) : (
                 <>
-                    <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    <section aria-label="Resumo estatístico" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                        <MetricCard featured icon={ListChecks} label="Episódios registrados" value={stats.overview.totalEpisodes.toLocaleString('pt-BR')} detail="soma do progresso informado" tone="cyan" />
+                        <MetricCard
+                            icon={Gauge}
+                            label="Progresso em episódios"
+                            value={stats.overview.availableEpisodes > 0 ? `${stats.overview.episodeProgress}%` : '—'}
+                            detail={stats.overview.availableEpisodes > 0
+                                ? `${stats.overview.progressEpisodes.toLocaleString('pt-BR')} de ${stats.overview.availableEpisodes.toLocaleString('pt-BR')} episódios conhecidos`
+                                : 'sem totais de episódios disponíveis'}
+                            tone="violet"
+                        />
                         <MetricCard icon={LibraryBig} label="Títulos" value={stats.overview.totalAnimes} detail="na seleção atual" tone="blue" />
-                        <MetricCard icon={Tv} label="Episódios" value={stats.overview.totalEpisodes} detail="marcados como vistos" tone="cyan" />
-                        <MetricCard icon={Clock3} label="Tempo" value={`${stats.overview.totalDays}d`} detail={`${stats.overview.totalHours} horas`} tone="violet" />
                         <MetricCard icon={Star} label="Nota média" value={stats.overview.averageScore || '—'} detail="somente avaliados" tone="amber" />
                         <MetricCard icon={Heart} label="Favoritos" value={stats.overview.favoritesCount} detail="escolhas pessoais" tone="rose" />
                     </section>
@@ -132,15 +150,19 @@ export function Stats() {
                                 description="A altura combina todas as situações da biblioteca; as cores mostram o status."
                                 icon={BarChart3}
                             >
-                                <div className="h-[300px] sm:h-[340px]"><ScoreDistributionChart data={stats.scoreDistribution} detailed /></div>
+                                {hasScores ? (
+                                    <div className="h-[300px] min-w-0 sm:h-[340px]"><ScoreDistributionChart data={stats.scoreDistribution} detailed /></div>
+                                ) : (
+                                    <ChartEmptyState icon={Star} title="Nenhuma nota neste recorte" description="Avalie títulos da seleção para preencher este gráfico." />
+                                )}
                             </Panel>
                             <Panel
                                 eyebrow="Fluxo"
                                 title="Estado da biblioteca"
-                                description={`${completedCount} completos e ${plannedCount} aguardando a próxima sessão.`}
+                                description={`${completedCount} completos e ${plannedCount} planejados neste recorte.`}
                                 icon={Activity}
                             >
-                                <div className="h-[300px]"><StatusDistributionChart data={stats.status} /></div>
+                                <div className="h-[300px] min-w-0"><StatusDistributionChart data={stats.status} /></div>
                             </Panel>
                         </section>
 
@@ -151,7 +173,7 @@ export function Stats() {
                                 description={topFormat ? `${topFormat.name} lidera com ${topFormat.value} títulos.` : 'Sem formatos identificados.'}
                                 icon={Clapperboard}
                             >
-                                <div className="h-[300px]"><TypeDistributionChart data={stats.types} /></div>
+                                <div className="h-[300px] min-w-0"><TypeDistributionChart data={stats.types} /></div>
                             </Panel>
                             <InsightsPanel
                                 completionRate={completionRate}
@@ -168,19 +190,23 @@ export function Stats() {
                     <Panel
                         eyebrow="Afinidades"
                         title="Gêneros que definem sua biblioteca"
-                        description="Participação, nota média e tempo estimado por gênero."
+                        description="Participação, nota média e episódios registrados por gênero."
                         icon={Layers3}
                         action={stats.genres.length > 8 ? (
-                            <button type="button" onClick={() => setShowAllGenres((value) => !value)} className="text-xs font-black text-primary hover:text-primary-hover">
+                            <button type="button" onClick={() => setShowAllGenres((value) => !value)} className="inline-flex min-h-11 w-full items-center justify-center rounded-xl px-3 text-xs font-black text-primary transition-colors hover:bg-primary/10 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:w-auto">
                                 {showAllGenres ? 'Mostrar menos' : `Ver todos (${stats.genres.length})`}
                             </button>
                         ) : null}
                     >
-                        <div className="space-y-2">
-                            {visibleGenres.map((genre, index) => (
-                                <GenreRow key={genre.name} genre={genre} index={index} maxTotal={stats.genres[0]?.total || 1} />
-                            ))}
-                        </div>
+                        {visibleGenres.length > 0 ? (
+                            <div className="space-y-2">
+                                {visibleGenres.map((genre, index) => (
+                                    <GenreRow key={genre.name} genre={genre} index={index} maxTotal={stats.genres[0]?.total || 1} />
+                                ))}
+                            </div>
+                        ) : (
+                            <ChartEmptyState icon={Layers3} title="Sem gêneros neste recorte" description="Os gêneros aparecerão quando estiverem disponíveis nos títulos selecionados." />
+                        )}
                     </Panel>
                 </>
             )}
@@ -190,9 +216,9 @@ export function Stats() {
 
 function HeroMetric({ label, value }) {
     return (
-        <div className="min-w-32 rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 backdrop-blur-md">
+        <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.06] px-3 py-3 backdrop-blur-md sm:min-w-32 sm:px-4">
             <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
-            <p className="mt-1 text-2xl font-black text-white">{value}</p>
+            <p className="mt-1 truncate text-2xl font-black text-white">{value}</p>
         </div>
     );
 }
@@ -201,19 +227,19 @@ function StatsFilterBar({ status, year, format, years, formats, resultCount, has
     return (
         <section className="flex flex-col gap-4 rounded-2xl border border-border-color bg-bg-secondary p-4 shadow-lg shadow-shadow-color/5 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary"><Filter className="h-4 w-4" /></span>
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Filter aria-hidden="true" className="h-4 w-4" /></span>
                 <div>
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-text-primary">Recorte da análise</p>
                     <p className="mt-0.5 text-xs text-text-secondary">{resultCount} títulos considerados</p>
                 </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <div className="grid min-w-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                 <FilterSelect label="Status" value={status} onChange={onStatusChange} options={STATUS_OPTIONS} />
                 <FilterSelect label="Ano" value={year} onChange={onYearChange} options={[{ value: 'all', label: 'Todos os anos' }, ...years.map((item) => ({ value: String(item), label: String(item) }))]} icon={CalendarDays} />
                 <FilterSelect label="Formato" value={format} onChange={onFormatChange} options={[{ value: 'all', label: 'Todos os formatos' }, ...formats.map((item) => ({ value: item, label: item }))]} icon={Clapperboard} />
                 {hasFilters && (
-                    <button type="button" onClick={onReset} className="col-span-2 inline-flex items-center justify-center gap-2 rounded-xl border border-border-color px-3 py-2.5 text-xs font-bold text-text-secondary transition-colors hover:border-primary/40 hover:text-text-primary sm:col-span-1">
-                        <RotateCcw className="h-3.5 w-3.5" /> Limpar
+                    <button type="button" onClick={onReset} className="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-color px-3 py-2.5 text-xs font-bold text-text-secondary transition-colors hover:border-primary/40 hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:col-span-1">
+                        <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" /> Limpar
                     </button>
                 )}
             </div>
@@ -225,14 +251,15 @@ function FilterSelect({ label, value, onChange, options, icon: Icon }) {
     return (
         <label className="relative min-w-0">
             <span className="sr-only">{label}</span>
-            {Icon && <Icon className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />}
+            {Icon && <Icon aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />}
             <select
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                className={`w-full appearance-none rounded-xl border border-border-color bg-bg-tertiary py-2.5 pr-8 text-xs font-bold text-text-primary outline-none transition-colors hover:border-primary/35 focus:border-primary ${Icon ? 'pl-9' : 'pl-3'}`}
+                className={`min-h-11 w-full appearance-none truncate rounded-xl border border-border-color bg-bg-tertiary py-2.5 pr-8 text-xs font-bold text-text-primary outline-none transition-colors hover:border-primary/35 focus:border-primary focus-visible:ring-2 focus-visible:ring-primary/40 ${Icon ? 'pl-9' : 'pl-3'}`}
             >
                 {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
+            <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-secondary" />
         </label>
     );
 }
@@ -245,13 +272,16 @@ const METRIC_TONES = {
     rose: 'bg-rose-500/10 text-rose-400',
 };
 
-function MetricCard({ icon: Icon, label, value, detail, tone }) {
+function MetricCard({ icon: Icon, label, value, detail, tone, featured = false }) {
     return (
-        <Motion.article whileHover={{ y: -3 }} className="rounded-2xl border border-border-color bg-bg-secondary p-4 shadow-sm sm:p-5">
-            <div className={`grid h-10 w-10 place-items-center rounded-xl ${METRIC_TONES[tone]}`}><Icon className="h-4.5 w-4.5" /></div>
+        <Motion.article
+            whileHover={{ y: -3 }}
+            className={`min-w-0 rounded-2xl border bg-bg-secondary p-4 shadow-sm sm:p-5 ${featured ? 'col-span-2 border-cyan-400/30 ring-1 ring-cyan-400/10 lg:col-span-1' : 'border-border-color'}`}
+        >
+            <div className={`grid h-10 w-10 place-items-center rounded-xl ${METRIC_TONES[tone]}`}><Icon aria-hidden="true" className="h-4.5 w-4.5" /></div>
             <p className="mt-4 text-[10px] font-black uppercase tracking-[0.16em] text-text-secondary">{label}</p>
-            <p className="mt-1 text-2xl font-black tracking-tight text-text-primary sm:text-3xl">{value}</p>
-            <p className="mt-1 truncate text-[10px] text-text-secondary/75">{detail}</p>
+            <p className="mt-1 truncate text-2xl font-black tracking-tight text-text-primary sm:text-3xl">{value}</p>
+            <p className="mt-1 min-h-7 break-words text-[10px] leading-snug text-text-secondary/75">{detail}</p>
         </Motion.article>
     );
 }
@@ -259,16 +289,16 @@ function MetricCard({ icon: Icon, label, value, detail, tone }) {
 function Panel({ eyebrow, title, description, icon: Icon, action, children }) {
     return (
         <section className="overflow-hidden rounded-3xl border border-border-color bg-bg-secondary shadow-sm">
-            <header className="flex items-start justify-between gap-4 border-b border-border-color/70 px-5 py-5 sm:px-6">
+            <header className="flex flex-col items-stretch justify-between gap-3 border-b border-border-color/70 px-5 py-5 sm:flex-row sm:items-start sm:gap-4 sm:px-6">
                 <div className="flex min-w-0 gap-3">
-                    <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon className="h-4.5 w-4.5" /></span>
+                    <span className="grid h-10 w-10 flex-shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Icon aria-hidden="true" className="h-4.5 w-4.5" /></span>
                     <div className="min-w-0">
                         <p className="text-[9px] font-black uppercase tracking-[0.18em] text-primary">{eyebrow}</p>
                         <h2 className="mt-1 text-base font-black tracking-tight text-text-primary sm:text-lg">{title}</h2>
                         <p className="mt-1 text-xs leading-relaxed text-text-secondary">{description}</p>
                     </div>
                 </div>
-                {action}
+                {action && <div className="w-full shrink-0 sm:w-auto">{action}</div>}
             </header>
             <div className="p-4 sm:p-6">{children}</div>
         </section>
@@ -298,7 +328,7 @@ function InsightsPanel({ completionRate, topGenre, averageScore, watchingCount, 
             <div className="grid gap-3 sm:grid-cols-2">
                 {insights.map((insight) => (
                     <article key={insight.label} className="rounded-2xl border border-border-color bg-bg-primary/40 p-4">
-                        <div className={`grid h-9 w-9 place-items-center rounded-xl ${insight.color}`}><insight.icon className="h-4 w-4" /></div>
+                        <div className={`grid h-9 w-9 place-items-center rounded-xl ${insight.color}`}><insight.icon aria-hidden="true" className="h-4 w-4" /></div>
                         <p className="mt-3 text-[9px] font-black uppercase tracking-[0.14em] text-text-secondary">{insight.label}</p>
                         <p className="mt-1 truncate text-xl font-black text-text-primary">{insight.value}</p>
                         <p className="mt-1 text-xs leading-relaxed text-text-secondary">{insight.text}</p>
@@ -319,16 +349,16 @@ function TopRatedSection({ animes }) {
                     <p className="text-[9px] font-black uppercase tracking-[0.18em] text-primary">Seu pódio</p>
                     <h2 className="mt-1 text-lg font-black tracking-tight text-text-primary">Mais bem avaliados por você</h2>
                 </div>
-                <Trophy className="h-6 w-6 text-amber-400" />
+                <Trophy aria-hidden="true" className="h-6 w-6 shrink-0 text-amber-400" />
             </div>
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                 {animes.map((anime, index) => (
-                    <Link key={anime.id} to={`/anime/${anime.id}`} className="group min-w-0">
+                    <Link key={anime.id} to={`/anime/${anime.id}`} className="group min-w-0 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
                         <div className="relative aspect-[2/3] overflow-hidden rounded-2xl bg-bg-tertiary">
                             <ResponsiveImage src={anime.image} alt={anime.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent" />
                             <span className="absolute left-2 top-2 grid h-7 min-w-7 place-items-center rounded-lg border border-white/15 bg-black/55 px-1 text-[10px] font-black text-white backdrop-blur-md">#{index + 1}</span>
-                            <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg bg-amber-400 px-2 py-1 text-[10px] font-black text-black"><Star className="h-3 w-3 fill-current" /> {anime.score}</span>
+                            <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-lg bg-amber-400 px-2 py-1 text-[10px] font-black text-black"><Star aria-hidden="true" className="h-3 w-3 fill-current" /> {anime.score}</span>
                         </div>
                         <h3 className="mt-2 truncate text-xs font-black text-text-primary transition-colors group-hover:text-primary">{anime.title}</h3>
                     </Link>
@@ -349,7 +379,14 @@ function GenreRow({ genre, index, maxTotal }) {
                     <h3 className="truncate text-sm font-black text-text-primary">{genre.name}</h3>
                     <span className="text-[10px] font-bold text-text-secondary sm:hidden">{genre.total}</span>
                 </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-primary">
+                <div
+                    role="progressbar"
+                    aria-label={`${genre.name}: ${genre.percentage}% dos títulos do recorte`}
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow={genre.percentage}
+                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-primary"
+                >
                     <div className="h-full rounded-full bg-gradient-to-r from-primary to-cyan-400" style={{ width: `${width}%` }} />
                 </div>
             </div>
@@ -358,8 +395,8 @@ function GenreRow({ genre, index, maxTotal }) {
                 <p className="text-[9px] uppercase text-text-secondary">títulos</p>
             </div>
             <div className="text-right">
-                <p className="inline-flex items-center gap-1 text-sm font-black text-text-primary"><Star className="h-3 w-3 fill-amber-400 text-amber-400" /> {genre.averageScore || '—'}</p>
-                <p className="text-[9px] uppercase text-text-secondary">{genre.daysWatched}d vistos</p>
+                <p className="inline-flex items-center gap-1 text-sm font-black text-text-primary"><Star aria-hidden="true" className="h-3 w-3 fill-amber-400 text-amber-400" /> {genre.averageScore || '—'}</p>
+                <p className="text-[9px] uppercase leading-tight text-text-secondary">{genre.episodesRegistered.toLocaleString('pt-BR')} episódios</p>
             </div>
         </article>
     );
@@ -367,7 +404,7 @@ function GenreRow({ genre, index, maxTotal }) {
 
 function ChartsLoadingState() {
     return (
-        <div className="grid gap-5 lg:grid-cols-2" aria-label="Carregando gráficos">
+        <div role="status" aria-live="polite" className="grid gap-5 lg:grid-cols-2" aria-label="Carregando gráficos">
             {[0, 1].map((item) => (
                 <div key={item} className="h-[390px] animate-pulse rounded-3xl border border-border-color bg-bg-secondary p-6">
                     <div className="h-5 w-44 rounded bg-bg-tertiary" />
@@ -381,10 +418,31 @@ function ChartsLoadingState() {
 function EmptyStats() {
     return (
         <div className="mx-auto flex min-h-[65vh] max-w-xl flex-col items-center justify-center p-6 text-center">
-            <span className="grid h-20 w-20 place-items-center rounded-3xl border border-primary/20 bg-primary/10 text-primary"><BarChart3 className="h-9 w-9" /></span>
+            <span className="grid h-20 w-20 place-items-center rounded-3xl border border-primary/20 bg-primary/10 text-primary"><BarChart3 aria-hidden="true" className="h-9 w-9" /></span>
             <h1 className="mt-6 text-3xl font-black tracking-tight text-text-primary">Sua história começa na biblioteca.</h1>
             <p className="mt-3 text-sm leading-relaxed text-text-secondary">Adicione alguns animes e registre seu progresso para transformar essa página em um retrato dos seus hábitos.</p>
-            <Link to="/catalog" className="mt-7 rounded-xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20">Explorar catálogo</Link>
+            <Link to="/catalog" className="mt-7 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary">Explorar catálogo</Link>
+        </div>
+    );
+}
+
+function StatsError({ onRetry }) {
+    return (
+        <div role="alert" className="mx-auto flex min-h-[65vh] max-w-xl flex-col items-center justify-center p-6 text-center">
+            <span aria-hidden="true" className="grid h-20 w-20 place-items-center rounded-3xl border border-red-500/20 bg-red-500/10 text-red-400">
+                <WifiOff className="h-9 w-9" />
+            </span>
+            <h1 className="mt-6 text-3xl font-black tracking-tight text-text-primary">Não foi possível calcular suas estatísticas</h1>
+            <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+                Não conseguimos carregar a biblioteca agora. Seus episódios e avaliações continuam salvos.
+            </p>
+            <button
+                type="button"
+                onClick={onRetry}
+                className="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-black text-white shadow-lg shadow-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
+            >
+                <RotateCcw aria-hidden="true" className="h-4 w-4" /> Tentar novamente
+            </button>
         </div>
     );
 }
@@ -392,10 +450,22 @@ function EmptyStats() {
 function NoFilteredResults({ onReset }) {
     return (
         <div className="flex min-h-72 flex-col items-center justify-center rounded-3xl border border-dashed border-border-color bg-bg-secondary/55 p-6 text-center">
-            <Filter className="h-9 w-9 text-text-secondary/40" />
+            <Filter aria-hidden="true" className="h-9 w-9 text-text-secondary/40" />
             <h2 className="mt-4 text-xl font-black text-text-primary">Nenhum título nesse recorte</h2>
             <p className="mt-2 text-sm text-text-secondary">Altere os filtros para voltar a enxergar sua biblioteca completa.</p>
-            <button type="button" onClick={onReset} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-black text-primary"><RotateCcw className="h-3.5 w-3.5" /> Limpar filtros</button>
+            <button type="button" onClick={onReset} className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-black text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"><RotateCcw aria-hidden="true" className="h-3.5 w-3.5" /> Limpar filtros</button>
+        </div>
+    );
+}
+
+function ChartEmptyState({ icon: Icon, title, description }) {
+    return (
+        <div className="flex min-h-56 flex-col items-center justify-center px-4 py-8 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary">
+                <Icon aria-hidden="true" className="h-5 w-5" />
+            </span>
+            <h3 className="mt-4 text-sm font-black text-text-primary">{title}</h3>
+            <p className="mt-2 max-w-sm text-xs leading-relaxed text-text-secondary">{description}</p>
         </div>
     );
 }

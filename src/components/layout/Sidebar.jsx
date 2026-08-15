@@ -53,7 +53,7 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(() => localStorage.getItem('sidebar_collapsed') === 'true');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isUserSearchOpen, setIsUserSearchOpen] = useState(false);
-  const { user, signOut, signInGoogle } = useAuth();
+  const { user, signOut } = useAuth();
   const { profile, loading: profileLoading } = useUserProfile();
   const navigate = useNavigate();
 
@@ -246,8 +246,8 @@ export function Sidebar() {
             <button
               type="button"
               data-sidebar-profile-anchor
-              aria-label="Entrar com Google"
-              onClick={signInGoogle}
+              aria-label="Entrar ou criar conta"
+              onClick={() => navigate('/login')}
               title={isCollapsed ? 'Fazer login' : undefined}
               className="app-sidebar__profile-row group relative flex h-16 w-full items-center overflow-hidden rounded-xl bg-bg-secondary text-left shadow-sm transition-[background-color,box-shadow] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
@@ -261,7 +261,7 @@ export function Sidebar() {
               </SidebarIcon>
               <span className="app-sidebar__profile-copy min-w-0 flex-1 pr-3">
                 <span className="block truncate text-sm font-bold text-text-primary transition-colors group-hover:text-primary">Visitante</span>
-                <span className="block truncate text-xs text-text-secondary">Entrar com Google</span>
+                <span className="block truncate text-xs text-text-secondary">Entrar ou criar conta</span>
               </span>
             </button>
           )}

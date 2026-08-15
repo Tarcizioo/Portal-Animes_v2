@@ -16,28 +16,69 @@ const DEFAULT_FILTERS = {
   producers: '',
 };
 
-function getUrlFilters(searchParams) {
-  const genreParam = searchParams.get('genre');
-  const qParam = searchParams.get('q');
+const URL_FILTER_VALUES = {
+  orderBy: new Set(['ranking', 'score', 'popularity', 'favorites', 'newest', 'oldest', 'az', 'za']),
+  season: new Set(['winter', 'spring', 'summer', 'fall']),
+  status: new Set(['airing', 'complete', 'upcoming']),
+  type: new Set(['tv', 'movie', 'ova', 'special', 'ona', 'music']),
+};
 
-  if (qParam) {
-    return {
-      ...DEFAULT_FILTERS,
-      q: qParam,
-    };
+function getValidUrlValue(searchParams, key, allowedValues) {
+  const value = searchParams.get(key)?.trim().toLowerCase();
+  return value && allowedValues.has(value) ? value : '';
+}
+
+export function getUrlFilters(searchParams) {
+  const filters = { ...DEFAULT_FILTERS };
+  let hasUrlFilter = false;
+
+  const query = searchParams.get('q')?.trim();
+  if (query) {
+    filters.q = query;
+    hasUrlFilter = true;
   }
 
-  if (genreParam) {
-    const genreId = Number.parseInt(genreParam, 10);
-    if (!Number.isNaN(genreId)) {
-      return {
-        ...DEFAULT_FILTERS,
-        genres: [genreId],
-      };
-    }
+  const genreParams = [
+    ...searchParams.getAll('genre'),
+    ...(searchParams.get('genres')?.split(',') || []),
+  ];
+  const genres = [...new Set(
+    genreParams
+      .map((value) => Number.parseInt(value, 10))
+      .filter((value) => Number.isInteger(value) && value > 0),
+  )];
+  if (genres.length > 0) {
+    filters.genres = genres;
+    hasUrlFilter = true;
   }
 
-  return null;
+  ['orderBy', 'season', 'status'].forEach((key) => {
+    const value = getValidUrlValue(searchParams, key, URL_FILTER_VALUES[key]);
+    if (!value) return;
+    filters[key] = value;
+    hasUrlFilter = true;
+  });
+
+  const type = getValidUrlValue(searchParams, 'type', URL_FILTER_VALUES.type)
+    || getValidUrlValue(searchParams, 'format', URL_FILTER_VALUES.type);
+  if (type) {
+    filters.type = type;
+    hasUrlFilter = true;
+  }
+
+  const year = Number.parseInt(searchParams.get('year'), 10);
+  if (Number.isInteger(year) && year > 1900 && year <= 2200) {
+    filters.year = String(year);
+    hasUrlFilter = true;
+  }
+
+  const producers = searchParams.get('producers')?.trim();
+  if (producers) {
+    filters.producers = producers;
+    hasUrlFilter = true;
+  }
+
+  return hasUrlFilter ? filters : null;
 }
 
 function getInitialFilters(searchParams) {

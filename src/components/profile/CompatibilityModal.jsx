@@ -1,9 +1,51 @@
 import { createPortal } from 'react-dom';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useModalClose } from '@/hooks/useModalClose';
-import { X, Heart, Tv, Star, ChevronRight, ChevronDown } from 'lucide-react';
+import { ArrowLeft, X, Heart, Tv, Star, ChevronRight, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function useDialogFocus(isOpen, dialogRef, initialFocusRef) {
+    useEffect(() => {
+        if (!isOpen || typeof document === 'undefined') return undefined;
+        const previouslyFocused = document.activeElement;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        const scheduleFocus = window.requestAnimationFrame?.bind(window) || window.setTimeout.bind(window);
+        const cancelFocus = window.cancelAnimationFrame?.bind(window) || window.clearTimeout.bind(window);
+        const focusFrame = scheduleFocus(() => (initialFocusRef.current || dialogRef.current)?.focus());
+
+        const keepFocusInside = (event) => {
+            if (event.key !== 'Tab' || !dialogRef.current) return;
+            const focusable = [...dialogRef.current.querySelectorAll(FOCUSABLE_SELECTOR)]
+                .filter((element) => !element.hasAttribute('disabled'));
+            if (!focusable.length) {
+                event.preventDefault();
+                dialogRef.current.focus();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener('keydown', keepFocusInside);
+        return () => {
+            cancelFocus(focusFrame);
+            document.removeEventListener('keydown', keepFocusInside);
+            document.body.style.overflow = previousOverflow;
+            previouslyFocused?.focus?.();
+        };
+    }, [dialogRef, initialFocusRef, isOpen]);
+}
 
 // ── Gauge SVG ─────────────────────────────────────────────────────────────────
 function CompatibilityGauge({ score }) {
@@ -20,7 +62,7 @@ function CompatibilityGauge({ score }) {
 
     return (
         <div className="flex flex-col items-center gap-1">
-            <svg width={180} height={92} viewBox="0 0 180 92">
+            <svg width={180} height={92} viewBox="0 0 180 92" role="img" aria-label={`${score}% de compatibilidade`}>
                 <path
                     d={`M ${CX - R},${CY} A ${R},${R} 0 0,1 ${CX + R},${CY}`}
                     fill="none" stroke="var(--bg-tertiary)" strokeWidth={13} strokeLinecap="round"
@@ -45,25 +87,30 @@ function CompatibilityGauge({ score }) {
 
 // ── Expandable Breakdown Bar ──────────────────────────────────────────────────
 function BreakdownSection({ id, label, value, icon: Icon, isOpen, onToggle, children }) {
+    const safeValue = Math.max(0, Math.min(100, Number(value) || 0));
+    const detailId = `compatibility-${id}-detail`;
     return (
         <div className="rounded-xl bg-bg-primary/40 border border-border-color overflow-hidden">
             {/* Header row — clickable */}
             <button
+                type="button"
                 onClick={() => onToggle(id)}
-                className="w-full flex items-center gap-2 p-3 hover:bg-bg-tertiary/40 transition-colors group focus:outline-none"
+                aria-expanded={isOpen}
+                aria-controls={detailId}
+                className="group flex min-h-11 w-full items-center gap-2 p-3 transition-colors hover:bg-bg-tertiary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-button-accent"
             >
                 <Icon className="w-3.5 h-3.5 text-button-accent flex-shrink-0" />
                 <span className="text-sm text-text-secondary font-medium flex-1 text-left">{label}</span>
-                <span className="font-bold text-text-primary text-sm mr-2">{value}%</span>
+                <span className="font-bold text-text-primary text-sm mr-2">{safeValue}%</span>
                 <ChevronDown className={`w-3.5 h-3.5 text-text-secondary transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {/* Progress bar */}
-            <div className="h-1.5 bg-bg-tertiary mx-3 mb-1 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-bg-tertiary mx-3 mb-1 rounded-full overflow-hidden" role="progressbar" aria-label={label} aria-valuemin="0" aria-valuemax="100" aria-valuenow={safeValue}>
                 <motion.div
                     className="h-full rounded-full bg-button-accent"
                     initial={{ width: 0 }}
-                    animate={{ width: `${value}%` }}
+                    animate={{ width: `${safeValue}%` }}
                     transition={{ duration: 0.9, ease: 'easeOut', delay: 0.2 }}
                 />
             </div>
@@ -72,6 +119,7 @@ function BreakdownSection({ id, label, value, icon: Icon, isOpen, onToggle, chil
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
+                        id={detailId}
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -89,7 +137,7 @@ function BreakdownSection({ id, label, value, icon: Icon, isOpen, onToggle, chil
 }
 
 // ── Shared Anime grid (inside accordion) ─────────────────────────────────────
-function SharedAnimeDetail({ sharedAnimes, onClose }) {
+function SharedAnimeDetail({ sharedAnimes, onClose, otherName }) {
     if (!sharedAnimes.length) {
         return (
             <div className="text-center py-4 text-text-secondary text-xs italic">
@@ -98,7 +146,7 @@ function SharedAnimeDetail({ sharedAnimes, onClose }) {
         );
     }
     return (
-        <div className="grid grid-cols-2 gap-2 mt-2">
+        <div className="mt-2 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2">
             {sharedAnimes.map(anime => (
                 <Link
                     key={anime.id}
@@ -120,7 +168,7 @@ function SharedAnimeDetail({ sharedAnimes, onClose }) {
                             )}
                             {anime.pubScore > 0 && (
                                 <span className="text-[10px] bg-white/5 text-text-secondary px-1.5 py-0.5 rounded font-bold">
-                                    Ele: {anime.pubScore}
+                                    {otherName}: {anime.pubScore}
                                 </span>
                             )}
                         </div>
@@ -192,27 +240,37 @@ export function CompatibilityModal({
 }) {
     useModalClose(isOpen, onClose);
     const [openSection, setOpenSection] = useState(null);
+    const dialogRef = useRef(null);
+    const backButtonRef = useRef(null);
+    useDialogFocus(isOpen, dialogRef, backButtonRef);
 
     const toggle = (id) => setOpenSection(prev => prev === id ? null : id);
 
-    if (!isOpen) return null;
+    if (!isOpen || typeof document === 'undefined') return null;
 
-    const label = score >= 80 ? '🔥 Combinação Incrível!'
-                : score >= 60 ? '💜 Muito Compatíveis'
-                : score >= 40 ? '👍 Gosto em Comum'
-                : score >= 20 ? '🤔 Diferenças de Gosto'
-                : '😅 Gostos Bem Diferentes';
+    const safeScore = Math.max(0, Math.min(100, Number(score) || 0));
+    const safeOtherName = otherName || 'este perfil';
+    const label = safeScore >= 80 ? 'Combinação excelente'
+                : safeScore >= 60 ? 'Muito compatíveis'
+                : safeScore >= 40 ? 'Gostos em comum'
+                : safeScore >= 20 ? 'Preferências diferentes'
+                : 'Gostos bem diferentes';
 
     const modal = (
         <AnimatePresence>
             {isOpen && (
                 <motion.div
-                    className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                    className="fixed inset-0 z-[160] flex items-end justify-center bg-black/80 p-0 backdrop-blur-md sm:items-center sm:p-4"
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     onClick={onClose}
                 >
                     <motion.div
-                        className="bg-bg-secondary w-full max-w-xl rounded-3xl border border-border-color shadow-2xl relative flex flex-col max-h-[90vh]"
+                        ref={dialogRef}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="compatibility-title"
+                        tabIndex={-1}
+                        className="relative flex h-[100dvh] w-full max-w-xl flex-col overflow-hidden border-0 bg-bg-secondary shadow-2xl sm:h-auto sm:max-h-[90dvh] sm:rounded-3xl sm:border sm:border-border-color"
                         initial={{ scale: 0.92, opacity: 0, y: 20 }}
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.92, opacity: 0, y: 20 }}
@@ -220,20 +278,21 @@ export function CompatibilityModal({
                         onClick={e => e.stopPropagation()}
                     >
                         {/* Header */}
-                        <div className="flex items-center justify-between p-5 border-b border-border-color flex-shrink-0">
-                            <h2 className="text-base font-bold text-text-primary flex items-center gap-2">
+                        <div className="flex flex-shrink-0 items-center gap-3 border-b border-border-color px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:p-5">
+                            <button ref={backButtonRef} type="button" onClick={onClose} aria-label="Voltar e fechar compatibilidade" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-button-accent sm:hidden"><ArrowLeft className="h-5 w-5" /></button>
+                            <h2 id="compatibility-title" className="flex min-w-0 flex-1 items-center gap-2 text-base font-bold text-text-primary">
                                 <Heart className="w-4 h-4 text-pink-500 fill-pink-500" />
-                                Compatibilidade com {otherName}
+                                <span className="truncate">Compatibilidade com {safeOtherName}</span>
                             </h2>
-                            <button onClick={onClose} className="p-2 hover:bg-bg-tertiary rounded-full text-text-secondary hover:text-text-primary transition-colors">
+                            <button type="button" onClick={onClose} aria-label="Fechar compatibilidade" className="hidden h-11 w-11 place-items-center rounded-full text-text-secondary transition-colors hover:bg-bg-tertiary hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-button-accent sm:grid">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
-                        <div className="overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent p-5 space-y-4">
+                        <div className="scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
                             {/* Gauge + label */}
                             <div className="flex flex-col items-center gap-1">
-                                <CompatibilityGauge score={score} />
+                                <CompatibilityGauge score={safeScore} />
                                 <span className="text-sm font-bold text-text-secondary">{label}</span>
                             </div>
 
@@ -245,10 +304,10 @@ export function CompatibilityModal({
 
                                 <BreakdownSection
                                     id="animes" label={`${sharedCount} Animes em comum`}
-                                    value={Math.min(100, Math.round(sharedCount * 5))}
+                                    value={Math.min(100, Math.round((Number(sharedCount) || 0) * 5))}
                                     icon={Tv} isOpen={openSection === 'animes'} onToggle={toggle}
                                 >
-                                    <SharedAnimeDetail sharedAnimes={sharedAnimes} onClose={onClose} />
+                                    <SharedAnimeDetail sharedAnimes={sharedAnimes || []} onClose={onClose} otherName={safeOtherName} />
                                 </BreakdownSection>
 
                                 <BreakdownSection
@@ -267,7 +326,7 @@ export function CompatibilityModal({
                                     <ScoreAffinityDetail
                                         myAvgScore={myAvgScore}
                                         pubAvgScore={pubAvgScore}
-                                        otherName={otherName}
+                                        otherName={safeOtherName}
                                     />
                                 </BreakdownSection>
                             </div>

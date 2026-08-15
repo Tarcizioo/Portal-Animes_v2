@@ -4,8 +4,9 @@ const DEFAULT_STATS = {
         overview: {
             totalAnimes: 0,
             totalEpisodes: 0,
-            totalHours: 0,
-            totalDays: 0,
+            progressEpisodes: 0,
+            availableEpisodes: 0,
+            episodeProgress: 0,
             averageScore: 0,
             favoritesCount: 0
         },
@@ -16,6 +17,11 @@ const DEFAULT_STATS = {
         topRated: []
     };
 
+function toNonNegativeInteger(value) {
+    const parsedValue = Number.parseInt(value, 10);
+    return Number.isFinite(parsedValue) ? Math.max(0, parsedValue) : 0;
+}
+
 export function useAnimeStats(library) {
     const stats = useMemo(() => {
         if (!library || library.length === 0) return DEFAULT_STATS;
@@ -25,9 +31,9 @@ export function useAnimeStats(library) {
         // --- Overview Stats ---
         const overview = {
             totalAnimes,
-            episodesWatched: 0,
-            minutesWatched: 0,
-            daysWatched: 0,
+            totalEpisodes: 0,
+            progressEpisodes: 0,
+            availableEpisodes: 0,
             completed: 0,
             watching: 0,
             plan_to_watch: 0,
@@ -40,59 +46,29 @@ export function useAnimeStats(library) {
         // --- Accumulators ---
         let totalScoreSum = 0;
         let totalScoreCount = 0;
-        const libraryByStatus = {
-            watching: [],
-            completed: [],
-            plan_to_watch: [],
-            dropped: [],
-            paused: []
-        };
-
-        // --- Score Distribution ---
-         const scoreCounts = Array.from({ length: 11 }, () => ({
-            total: 0,
-            watching: 0,
-            completed: 0,
-            plan_to_watch: 0,
-            dropped: 0,
-            paused: 0
-        }));
-
         const typeCounts = {};
 
         library.forEach(anime => {
-            const currentEp = parseInt(anime.currentEp) || 0;
-            const duration = parseInt(anime.duration) || 24; // Default to 24min if unknown
+            const currentEp = toNonNegativeInteger(anime.currentEp);
+            const totalEp = toNonNegativeInteger(anime.totalEp ?? anime.episodes);
             const score = Number(anime.score) || 0;
             const status = anime.status || 'plan_to_watch';
             const type = anime.type || 'TV';
 
             // Overview
-            overview.episodesWatched += currentEp;
-            overview.minutesWatched += (currentEp * duration);
+            overview.totalEpisodes += currentEp;
+            if (totalEp > 0) {
+                overview.progressEpisodes += Math.min(currentEp, totalEp);
+                overview.availableEpisodes += totalEp;
+            }
             
             if (overview[status] !== undefined) overview[status]++;
-            // if (status === 'completed') overview.completed = (overview.completed || 0); // Already incremented above? actually line 41 does it.
             
             if (anime.isFavorite) overview.favorites++;
 
             if (score > 0) {
                 totalScoreSum += score;
                 totalScoreCount++;
-                
-                // Score Distribution
-                const scoreInt = Math.floor(score);
-                if (scoreInt >= 1 && scoreInt <= 10) {
-                    scoreCounts[scoreInt].total++;
-                    if (scoreCounts[scoreInt][status] !== undefined) {
-                        scoreCounts[scoreInt][status]++;
-                    }
-                }
-            }
-
-            // Group by status for top rated filtering
-            if (libraryByStatus[status]) {
-                libraryByStatus[status].push(anime);
             }
 
              // Type Distribution
@@ -100,7 +76,9 @@ export function useAnimeStats(library) {
         });
 
         overview.averageScore = totalScoreCount > 0 ? (totalScoreSum / totalScoreCount).toFixed(1) : 0;
-        overview.daysWatched = (overview.minutesWatched / 1440).toFixed(1);
+        overview.episodeProgress = overview.availableEpisodes > 0
+            ? Math.round((overview.progressEpisodes / overview.availableEpisodes) * 100)
+            : 0;
 
          // --- Genre Stats (Calculated via helper) ---
         const genres = calculateGenreStats(library);
@@ -127,15 +105,16 @@ export function useAnimeStats(library) {
         return {
             overview: {
                 totalAnimes: overview.totalAnimes,
-                totalEpisodes: overview.episodesWatched,
-                totalHours: Math.round(overview.minutesWatched / 60),
-                totalDays: overview.daysWatched,
+                totalEpisodes: overview.totalEpisodes,
+                progressEpisodes: overview.progressEpisodes,
+                availableEpisodes: overview.availableEpisodes,
+                episodeProgress: overview.episodeProgress,
                 averageScore: overview.averageScore,
                 favoritesCount: overview.favorites
             },
             genres,
             status: statusData,
-            scoreDistribution: calculateScoreDistribution(library), // Use helper
+            scoreDistribution: calculateScoreDistribution(library),
             types,
             topRated
         };
@@ -152,7 +131,7 @@ export function calculateGenreStats(animes) {
 
     animes.forEach(anime => {
         if (Array.isArray(anime.genres)) {
-            const currentEp = parseInt(anime.currentEp) || 0;
+            const currentEp = toNonNegativeInteger(anime.currentEp);
             const score = Number(anime.score) || 0;
             
             anime.genres.forEach(genre => {
@@ -168,7 +147,7 @@ export function calculateGenreStats(animes) {
                         paused: 0,
                         scoreSum: 0,
                         scoreCount: 0,
-                        episodeSum: 0
+                        episodesRegistered: 0
                     };
                 }
                 genreCounts[genre].total++;
@@ -181,7 +160,7 @@ export function calculateGenreStats(animes) {
                     genreCounts[genre].scoreSum += score;
                     genreCounts[genre].scoreCount++;
                 }
-                genreCounts[genre].episodeSum += currentEp;
+                genreCounts[genre].episodesRegistered += currentEp;
             });
         }
     });
@@ -189,18 +168,15 @@ export function calculateGenreStats(animes) {
     return Object.values(genreCounts)
         .map(g => {
             const avg = g.scoreCount > 0 ? (g.scoreSum / g.scoreCount) : 0;
-            const minutes = g.episodeSum * 24;
-            const days = minutes / 1440; // 60 * 24
             const percent = totalAnimes > 0 ? (g.total / totalAnimes) * 100 : 0;
             
             return {
                 ...g,
                 averageScore: Number(avg.toFixed(1)),
-                daysWatched: Number(days.toFixed(1)),
                 percentage: Number(percent.toFixed(1))
             };
         })
-        .sort((a, b) => b.total - a.total);
+        .sort((a, b) => b.total - a.total || b.episodesRegistered - a.episodesRegistered || a.name.localeCompare(b.name));
 }
 
 export function calculateScoreDistribution(animes) {
@@ -230,6 +206,5 @@ export function calculateScoreDistribution(animes) {
         }
     });
 
-    // Use 'score' key instead of 'name' to match Recharts dataKey in Stats.jsx
     return scoreCounts.map((s, i) => ({ ...s, score: i === 0 ? '?' : i.toString() })).slice(1);
 }

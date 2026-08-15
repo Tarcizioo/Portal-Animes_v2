@@ -98,7 +98,7 @@ function UntrackedJourney({ anime, handleStatusChange }) {
                     onPointerLeave={resetPointerGlow}
                 >
                     {pendingStatus === 'watching' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
-                    {pendingStatus === 'watching' ? 'Adicionando...' : 'Começar a assistir'}
+                    {pendingStatus === 'watching' ? 'Adicionando...' : 'Acompanhar anime'}
                 </button>
 
                 <button

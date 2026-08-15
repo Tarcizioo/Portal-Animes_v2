@@ -385,12 +385,12 @@ export function PublicLibrary() {
                                     value={filters.orderBy}
                                     onChange={e => updateFilter('orderBy', e.target.value)}
                                 >
-                                    <option value="recent_updated">🕒 Editados Recentemente</option>
-                                    <option value="oldest_updated">🦕 Editados Antigos</option>
-                                    <option value="score">⭐ Nota</option>
-                                    <option value="title_asc">🔤 Título (A-Z)</option>
-                                    <option value="title_desc">🔤 Título (Z-A)</option>
-                                    <option value="favorites">❤️ Favoritos Primeiro</option>
+                                    <option value="recent_updated">Editados Recentemente</option>
+                                    <option value="oldest_updated">Editados Antigos</option>
+                                    <option value="score">Nota</option>
+                                    <option value="title_asc">Título (A-Z)</option>
+                                    <option value="title_desc">Título (Z-A)</option>
+                                    <option value="favorites">Favoritos Primeiro</option>
                                 </select>
                                 <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary pointer-events-none" />
                             </div>
