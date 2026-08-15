@@ -68,8 +68,9 @@ Evidências adicionais:
 - **Início autenticada:** preserva Hero, continuidade e recomendações e acrescenta, conforme os dados disponíveis, `Sua próxima escolha`, `Sua jornada`, `Aclamados pela comunidade` e `Destaques da temporada`.
 - **Início visitante:** mantém o Hero e recebe os dois trilhos editoriais, sem expor seções pessoais vazias.
 - **Separação de papéis:** os trilhos de gênero continuam exclusivos de Descobrir; a Início prioriza continuidade, decisões pessoais e uma amostra editorial.
-- **Eficiência:** as novas seções reutilizam biblioteca, populares e temporada já carregados. Não foi adicionada nenhuma consulta de rede.
+- **Eficiência:** as novas seções reutilizam biblioteca, populares e temporada já carregados, com no máximo oito capas por trilho. Não foi adicionada nenhuma consulta de rede.
 - **Variedade:** Hero, recomendações, biblioteca e trilhos editoriais são deduplicados por ID antes da renderização.
+- **Recuperação:** falhas da biblioteca não simulam mais um estado vazio; erros parciais de conteúdo preservam o que carregou e oferecem nova tentativa.
 
 Evidência anterior ao aumento de densidade: `artifacts/design-audit/home-expansion-before-390x844.png`. A recaptura incremental pelo navegador in-app foi recusada pela política automática da ferramenta nesta execução; a composição nova reutiliza o `AnimeCarousel` já validado nos três viewports e um grid responsivo novo coberto por teste focado.
 

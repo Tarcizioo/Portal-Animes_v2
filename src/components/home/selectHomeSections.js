@@ -1,4 +1,4 @@
-const DEFAULT_RAIL_LIMIT = 12;
+const DEFAULT_RAIL_LIMIT = 8;
 
 function getAnimeId(anime) {
   const id = anime?.id ?? anime?.mal_id;
@@ -19,6 +19,8 @@ function addIds(target, items = []) {
 }
 
 function takeUnique(items = [], excludedIds, limit = DEFAULT_RAIL_LIMIT) {
+  if (limit <= 0) return [];
+
   const selected = [];
 
   for (const item of items) {
@@ -57,6 +59,7 @@ export function selectHomeSections({
     .map((anime) => ({
       ...anime,
       episodes: anime.episodes || anime.totalEp || null,
+      score: Number(anime.score) > 0 ? anime.score : null,
     }));
 
   const acclaimed = takeUnique(popularAnimes, discoveryExclusions, limit);

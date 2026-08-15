@@ -71,5 +71,17 @@ describe('selectHomeSections', () => {
 
     expect(result.nextChoices.map((anime) => anime.id)).toEqual([2, 3, 4, 1]);
     expect(result.nextChoices.map((anime) => anime.episodes)).toEqual([24, 13, 6, 12]);
+    expect(result.nextChoices.every((anime) => anime.score === null)).toBe(true);
+  });
+
+  it('returns empty rails when the requested limit is zero', () => {
+    const result = selectHomeSections({
+      popularAnimes: [{ id: 1 }],
+      seasonalAnimes: [{ id: 2 }],
+      limit: 0,
+    });
+
+    expect(result.acclaimed).toEqual([]);
+    expect(result.seasonal).toEqual([]);
   });
 });

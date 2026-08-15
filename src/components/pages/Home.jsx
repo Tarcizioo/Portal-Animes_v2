@@ -88,12 +88,12 @@ function HomeRailSkeleton({ title }) {
   );
 }
 
-function RecommendationError({ onRetry, isRetrying }) {
+function HomeInlineError({ title, description, onRetry, isRetrying = false }) {
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-border-color bg-bg-secondary/70 p-4 sm:flex-row sm:items-center sm:justify-between" role="alert">
       <div>
-        <p className="font-bold text-text-primary">Não foi possível montar suas recomendações</p>
-        <p className="mt-1 text-sm text-text-secondary">Você ainda pode explorar os títulos em alta enquanto tentamos novamente.</p>
+        <p className="font-bold text-text-primary">{title}</p>
+        <p className="mt-1 text-sm text-text-secondary">{description}</p>
       </div>
       <button
         type="button"
@@ -122,6 +122,8 @@ export function Home() {
   const {
     library,
     loading: libraryLoading,
+    error: libraryError,
+    retry: retryLibrary,
     incrementProgress,
   } = useAnimeLibrary();
   const {
@@ -131,7 +133,7 @@ export function Home() {
     error: recommendationsError,
     refetch: refetchRecommendations,
   } = useRecommendations(library, {
-    enabled: Boolean(user) && !libraryLoading && !loading,
+    enabled: Boolean(user) && !libraryLoading,
   });
 
   const continueWatching = selectContinueWatching(library, 4);
@@ -166,15 +168,26 @@ export function Home() {
       {user && (
         libraryLoading ? (
           <ContinueWatchingSkeleton variant="home" />
-        ) : continueWatching.length > 0 ? (
-          <ContinueWatching
-            animes={continueWatching}
-            onIncrement={handleIncrementProgress}
-            variant="home"
-            viewAllHref="/library"
-          />
         ) : (
-          <ContinueWatchingEmpty />
+          <>
+            {libraryError && (
+              <HomeInlineError
+                title="Não foi possível atualizar sua biblioteca"
+                description="Seus dados salvos continuam seguros. Tente reconectar para atualizar o progresso."
+                onRetry={retryLibrary}
+              />
+            )}
+            {continueWatching.length > 0 ? (
+              <ContinueWatching
+                animes={continueWatching}
+                onIncrement={handleIncrementProgress}
+                variant="home"
+                viewAllHref="/library"
+              />
+            ) : !libraryError ? (
+              <ContinueWatchingEmpty />
+            ) : null}
+          </>
         )
       )}
 
@@ -193,7 +206,12 @@ export function Home() {
       {showRecommendationLoading && <HomeRailSkeleton title="Para você" />}
 
       {user && recommendationsError && !recommendationsLoading && (
-        <RecommendationError onRetry={refetchRecommendations} isRetrying={recommendationsFetching} />
+        <HomeInlineError
+          title="Não foi possível montar suas recomendações"
+          description="Você ainda pode explorar os títulos em alta enquanto tentamos novamente."
+          onRetry={refetchRecommendations}
+          isRetrying={recommendationsFetching}
+        />
       )}
 
       {hasPersonalizedRecommendations && (
@@ -209,6 +227,19 @@ export function Home() {
 
       {user && !libraryLoading && <HomeJourneySnapshot library={library} />}
 
+      {!heroIsLoading && error && hasDiscoveryContent && (
+        <HomeInlineError
+          title="Parte da Início não foi carregada"
+          description="O conteúdo disponível continua visível. Tente buscar os destaques que faltaram novamente."
+          onRetry={refetch}
+          isRetrying={isRefreshing}
+        />
+      )}
+
+      {loading && additionalSections.acclaimed.length === 0 && (
+        <HomeRailSkeleton title="Aclamados pela comunidade" />
+      )}
+
       {additionalSections.acclaimed.length > 0 && (
         <AnimeCarousel
           id="acclaimed"
@@ -218,6 +249,10 @@ export function Home() {
           variant="home"
           viewAllHref="/catalog?orderBy=ranking"
         />
+      )}
+
+      {loading && additionalSections.seasonal.length === 0 && (
+        <HomeRailSkeleton title="Destaques da temporada" />
       )}
 
       {additionalSections.seasonal.length > 0 && (

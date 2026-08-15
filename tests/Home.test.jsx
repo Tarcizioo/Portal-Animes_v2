@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
   home: {},
   library: [],
   libraryLoading: false,
+  libraryError: null,
+  retryLibrary: vi.fn(),
   incrementProgress: vi.fn(),
   recommendations: [],
   recommendationsLoading: false,
@@ -32,6 +34,8 @@ vi.mock('@/hooks/useAnimeLibrary', () => ({
   useAnimeLibrary: () => ({
     library: state.library,
     loading: state.libraryLoading,
+    error: state.libraryError,
+    retry: state.retryLibrary,
     incrementProgress: state.incrementProgress,
   }),
 }));
@@ -126,6 +130,8 @@ describe('Home', () => {
     };
     state.library = [];
     state.libraryLoading = false;
+    state.libraryError = null;
+    state.retryLibrary.mockReset();
     state.incrementProgress.mockReset().mockResolvedValue(undefined);
     state.recommendations = [];
     state.recommendationsLoading = false;
@@ -198,5 +204,17 @@ describe('Home', () => {
 
     expect(screen.getByTestId('home-hero-loading')).toBeInTheDocument();
     expect(screen.getByTestId('continue-watching')).toBeInTheDocument();
+  });
+
+  it('shows a recoverable library error instead of a false empty state', () => {
+    state.user = { uid: 'user-1' };
+    state.libraryError = new Error('offline');
+
+    renderHome();
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Não foi possível atualizar sua biblioteca');
+    expect(screen.queryByTestId('continue-empty')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
+    expect(state.retryLibrary).toHaveBeenCalledOnce();
   });
 });
